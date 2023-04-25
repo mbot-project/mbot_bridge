@@ -1,0 +1,4 @@
+lcm_address: "udpm://239.255.76.67:7667?ttl=1"
+topics:
+  - channel: "TEST_CMD"
+    type: "omni_motor_command_t"
