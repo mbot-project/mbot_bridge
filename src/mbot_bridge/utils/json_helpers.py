@@ -21,7 +21,7 @@ class MBotJSONRequest(object):
         try:
             data = json.loads(data)
         except json.decoder.JSONDecodeError:
-            raise BadMBotRequestError(f"Message was not valid JSON: \"{self._raw_data}\"")
+            raise BadMBotRequestError(f"Message is not valid JSON: \"{self._raw_data}\"")
 
         # Get the type and channel for the request.
         try:
@@ -64,3 +64,27 @@ class MBotJSONRequest(object):
 
     def channel(self):
         return self._channel
+
+
+class MBotJSONResponse(object):
+    def __init__(self, channel, data, dtype):
+        self.channel = channel
+        self.data = data
+        self.dtype = dtype
+
+    def as_json(self):
+        data = {"type": "response", "channel": self.channel,
+                "dtype": self.dtype, "data": self.data}
+        return json.dumps(data)
+
+
+class MBotJSONError(object):
+    def __init__(self, msg="", data=None):
+        self.message = msg
+        self.data = data
+
+    def as_json(self):
+        data = {"type": "error", "msg": self.message}
+        if self.data is not None:
+            data.update({"data": self.data})
+        return json.dumps(data)

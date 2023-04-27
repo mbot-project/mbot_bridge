@@ -14,7 +14,14 @@ window.addEventListener("DOMContentLoaded", () => {
   };
 
   websocket.onmessage = (event) => {
-    console.log("Recieved:", event.data);
-    websocket.send("Thanks for the data");
+    let msg = JSON.parse(event.data);
+    if (msg.type === "error") {
+      console.warn("Error!", msg.msg);
+    }
+    else {
+      console.log("Recieved:", msg);
+      // This is not a valid message but is helpful for testing error catching.
+      websocket.send("Thanks for the data");
+    }
   };
 });

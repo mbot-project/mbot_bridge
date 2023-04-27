@@ -1,7 +1,6 @@
 #!/bin/python3
 
 import yaml
-import json
 import asyncio
 import signal
 import select
@@ -10,13 +9,16 @@ import websockets
 
 import lcm
 from mbot_bridge.utils import type_utils
-from mbot_bridge.utils.json_helpers import MBotJSONRequest, MBotRequestType, BadMBotRequestError
+from mbot_bridge.utils.json_helpers import (
+    MBotJSONRequest, MBotJSONResponse, MBotJSONError,
+    MBotRequestType, BadMBotRequestError
+)
 
 
 class LCMMessageQueue(object):
-    def __init__(self, channel, lcm_type, queue_size=1):
+    def __init__(self, channel, dtype, queue_size=1):
         self.channel = channel
-        self.lcm_type = lcm_type
+        self.dtype = dtype
         self.queue_size = queue_size
 
         self._queue = []
@@ -25,7 +27,7 @@ class LCMMessageQueue(object):
     def push(self, msg, decode=True):
         # Decode to LCM type.
         if decode:
-            msg = type_utils.decode(msg, self.lcm_type)
+            msg = type_utils.decode(msg, self.dtype)
 
         self._lock.acquire()
         # Add the current message to the back of the queue.
@@ -35,14 +37,12 @@ class LCMMessageQueue(object):
             self._queue.pop(0)
         self._lock.release()
 
-    def latest(self, as_json=False):
+    def latest(self):
         latest = None
         self._lock.acquire()
         if len(self._queue) > 0:
             latest = self._queue[-1]
         self._lock.release()
-        if as_json and latest is not None:
-            latest = type_utils.lcm_type_to_dict(latest)
         return latest
 
     def pop(self):
@@ -96,24 +96,40 @@ class MBotBridgeServer(object):
             try:
                 message = MBotJSONRequest(message)
             except BadMBotRequestError as e:
-                print("Bad MBot request. Ignoring. BadMBotRequestError:", e)
+                # If something went wrong parsing this request, send the error message then continue.
+                msg = f"Bad MBot request. Ignoring. BadMBotRequestError: {e}"
+                print(msg)
+                err = MBotJSONError(msg)
+                await websocket.send(err.as_json())
                 continue
 
             if message.type() == MBotRequestType.REQUEST:
                 ch = message.channel()
                 if ch not in self._msg_managers:
-                    # TODO: Send back an error.
-                    print("Bad request: No channel", ch)
-                    continue
-
-                latest = self._msg_managers[ch].latest(as_json=True)
-                # TODO: Wrap response.
-                response = {"type": "response", "channel": ch, "data": latest}
-                await websocket.send(json.dumps(response))
+                    # If the channel being requested does not exist, return an error.
+                    msg = f"Bad MBot request. No channel: {ch}"
+                    print(msg)
+                    err = MBotJSONError(msg)
+                    await websocket.send(err.as_json())
+                else:
+                    # Get the newest data.
+                    latest = self._msg_managers[ch].latest()
+                    latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
+                    # Wrap the response data for sending over the websocket.
+                    res = MBotJSONResponse(ch, latest, self._msg_managers[ch].dtype)
+                    await websocket.send(res.as_json())
             elif message.type() == MBotRequestType.PUBLISH:
-                # TODO: Catch exceptions and send back error.
-                pub_msg = type_utils.dict_to_lcm_type(message.data, message.dtype)
-                self._lcm.publish(message.channel(), pub_msg.encode())
+                try:
+                    # Publish the data sent over the websocket.
+                    pub_msg = type_utils.dict_to_lcm_type(message.data, message.dtype)
+                    self._lcm.publish(message.channel(), pub_msg.encode())
+                except AttributeError as e:
+                    # If the type or data is bad, send back an error message.
+                    msg = (f"Bad MBot publish. Bad message type ({message.dtype}) or data (\"{message.data}\"). "
+                           f"AttributeError: {e}")
+                    print(msg)
+                    err = MBotJSONError(msg)
+                    await websocket.send(err.as_json())
 
 
 async def main(args):
