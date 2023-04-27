@@ -8,6 +8,7 @@ window.addEventListener("DOMContentLoaded", () => {
     websocket.send(JSON.stringify(conn_data));
 
     let request_data = {type: "request", channel: "SLAM_POSE"};
+    // let request_data = {type: "publish", channel: "MBOT_MOTOR_COMMAND", dtype: "twist2D_t", data: {}};
     websocket.send(JSON.stringify(request_data));
   };
 

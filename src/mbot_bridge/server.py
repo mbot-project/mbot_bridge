@@ -10,6 +10,7 @@ import websockets
 
 import lcm
 from mbot_bridge.utils import type_utils
+from mbot_bridge.utils.json_helpers import MBotJSONRequest, MBotRequestType, BadMBotRequestError
 
 
 class LCMMessageQueue(object):
@@ -93,20 +94,22 @@ class MBotBridgeServer(object):
     async def handler(self, websocket):
         async for message in websocket:
             try:
-                message = json.loads(message)
-            except json.decoder.JSONDecodeError:
-                print("Message was not valid JSON. Ignoring:", message)
+                message = MBotJSONRequest(message)
+            except BadMBotRequestError as e:
+                print("Bad MBot request. Ignoring. BadMBotRequestError:", e)
                 continue
 
             print("Got WS msg!", message)
 
-            if message["type"] == "request":
-                ch = message["channel"]
+            if message.type() == MBotRequestType.REQUEST:
+                ch = message.channel()
                 if ch not in self._msg_managers:
-                    print("Bad request: no channel", ch)
+                    # TODO: Send back an error.
+                    print("Bad request: No channel", ch)
                     continue
 
                 latest = self._msg_managers[ch].latest(as_json=True)
+                # TODO: Wrap response.
                 response = {"type": "response", "channel": ch, "data": latest}
                 await websocket.send(json.dumps(response))
 
