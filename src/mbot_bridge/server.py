@@ -55,7 +55,8 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, subs=[]):
+    def __init__(self, lcm_address, subs=[], lcm_timeout=1000):
+        self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
         self._lcm = lcm.LCM(lcm_address)
 
         self._msg_managers = {}
@@ -89,7 +90,10 @@ class MBotBridgeServer(object):
 
     def lcm_loop(self):
         while self.running():
-            self.handleOnce()
+            # This will block for a maximum of _lcm_timeout milliseconds, so it
+            # might slow stopping the server, but it's less expensive than using
+            # the non-blocking handleOnce.
+            self._lcm.handle_timeout(self._lcm_timeout)
 
     async def handler(self, websocket):
         async for message in websocket:
