@@ -1,14 +1,14 @@
-from mbot_lcm_msgs import omni_motor_command_t
+from mbot_lcm_msgs import pose2D_t
 
 LCM_TYPES = {
-    "omni_motor_command_t": omni_motor_command_t
+    "pose2D_t": pose2D_t
 }
 
 
 def decode(data, type_name):
     """Decode raw data from LCM channel to type based on type string."""
     if type_name not in LCM_TYPES:
-        raise Exception("LCM Type {type_name} is not supported.")
+        raise Exception(f"LCM Type {type_name} is not supported.")
 
     return LCM_TYPES[type_name].decode(data)
 

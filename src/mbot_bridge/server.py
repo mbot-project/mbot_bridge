@@ -9,7 +9,7 @@ import threading
 import websockets
 
 import lcm
-from mbot_bridge.lcm_utils import type_utils
+from mbot_bridge.utils import type_utils
 
 
 class LCMMessageQueue(object):
@@ -54,11 +54,11 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, topics=[]):
+    def __init__(self, lcm_address, subs=[]):
         self._lcm = lcm.LCM(lcm_address)
 
         self._msg_managers = {}
-        for channel in topics:
+        for channel in subs:
             ch, lcm_type = channel["channel"], channel["type"]
             self._msg_managers.update({channel["channel"]: LCMMessageQueue(ch, lcm_type)})
             self._lcm.subscribe(ch, self.listener)
@@ -121,7 +121,7 @@ async def main(args):
     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
 
-    lcm_manager = MBotBridgeServer(config["lcm_address"], config["topics"])
+    lcm_manager = MBotBridgeServer(config["lcm_address"], config["subs"])
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))

@@ -7,7 +7,7 @@ window.addEventListener("DOMContentLoaded", () => {
     let conn_data = {type: "init", data: "connected"};
     websocket.send(JSON.stringify(conn_data));
 
-    let request_data = {type: "request", channel: "TEST_CMD"};
+    let request_data = {type: "request", channel: "SLAM_POSE"};
     websocket.send(JSON.stringify(request_data));
   };
 

@@ -1,4 +1,13 @@
 lcm_address: "udpm://239.255.76.67:7667?ttl=1"
-topics:
-  - channel: "TEST_CMD"
-    type: "omni_motor_command_t"
+# The server listens to these channels.
+subs:
+  - channel: "LIDAR"
+    type: "lidar_t"
+  - channel: "ODOMETRY"
+    type: "pose2D_t"
+  - channel: "SLAM_POSE"
+    type: "pose2D_t"
+# The server publishes messages to these channels.
+pubs:
+  - channel: "MBOT_MOTOR_COMMAND"
+    type: "twist2d_t"

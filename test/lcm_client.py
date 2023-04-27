@@ -1,15 +1,15 @@
 import lcm
 import time
-from mbot_lcm_msgs import omni_motor_command_t
+from mbot_lcm_msgs import pose2D_t
 
 _lcm = lcm.LCM("udpm://239.255.76.67:7667?ttl=1")
 
-cmd = omni_motor_command_t()
-cmd.vx = 0
-cmd.vy = 0
-cmd.wz = 0
+cmd = pose2D_t()
+cmd.x = 0
+cmd.y = 0
+cmd.theta = 0
 for i in range(10):
-    print(f"PUB:  vx: {cmd.vx} vy: {cmd.vy} wz: {cmd.wz}")
-    _lcm.publish("TEST_CMD", cmd.encode())
+    print(f"PUB:  vx: {cmd.x} vy: {cmd.y} wz: {cmd.theta}")
+    _lcm.publish("SLAM_POSE", cmd.encode())
     time.sleep(2)
-    cmd.vx += 1
+    cmd.x += 1
