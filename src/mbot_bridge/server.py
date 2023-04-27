@@ -99,8 +99,6 @@ class MBotBridgeServer(object):
                 print("Bad MBot request. Ignoring. BadMBotRequestError:", e)
                 continue
 
-            print("Got WS msg!", message)
-
             if message.type() == MBotRequestType.REQUEST:
                 ch = message.channel()
                 if ch not in self._msg_managers:
@@ -112,6 +110,10 @@ class MBotBridgeServer(object):
                 # TODO: Wrap response.
                 response = {"type": "response", "channel": ch, "data": latest}
                 await websocket.send(json.dumps(response))
+            elif message.type() == MBotRequestType.PUBLISH:
+                # TODO: Catch exceptions and send back error.
+                pub_msg = type_utils.dict_to_lcm_type(message.data, message.dtype)
+                self._lcm.publish(message.channel(), pub_msg.encode())
 
 
 async def main(args):
