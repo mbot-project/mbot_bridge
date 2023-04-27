@@ -13,3 +13,11 @@ Dependencies:
 pip install -r requirements.txt
 pip install -e .
 ```
+
+## Usage
+
+To run the server, do:
+```bash
+python -m mbot_bridge.server [--config [PATH/TO/CONFIG]]
+```
+The `--config` argument is optional and will default to `src/mbot_bridge/config/default.yml`.

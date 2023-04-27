@@ -163,9 +163,9 @@ async def main(args):
     print("MBot Bridge: Exited cleanly.")
 
 
-def load_args():
+def load_args(conf="config/default.yml"):
     parser = argparse.ArgumentParser(description="MBot Bridge Server.")
-    parser.add_argument("--config", type=str, default="config/default.yml", help="Configuration file.")
+    parser.add_argument("--config", type=str, default=conf, help="Configuration file.")
 
     args = parser.parse_args()
 
@@ -174,6 +174,10 @@ def load_args():
 
 if __name__ == "__main__":
     import argparse
+    import importlib.resources as pkg_resources
+    from . import config
 
-    args = load_args()
+    DEFAULT_CONFIG = pkg_resources.path(config, 'default.yml')
+
+    args = load_args(DEFAULT_CONFIG)
     asyncio.run(main(args))
