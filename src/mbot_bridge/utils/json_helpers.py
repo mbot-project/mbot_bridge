@@ -15,7 +15,13 @@ class BadMBotRequestError(Exception):
 class MBotJSONRequest(object):
     """Message parser for incoming requests."""
 
-    def __init__(self, data):
+    def __init__(self, channel=None, data=None, dtype=None, rtype=None):
+        self._request_type = rtype
+        self._channel = channel
+        self.data = data
+        self.dtype = dtype
+
+    def decode(self, data):
         self._raw_data = data
         # First try to load the data as JSON.
         try:
@@ -64,6 +70,12 @@ class MBotJSONRequest(object):
 
     def channel(self):
         return self._channel
+
+    def encode(self):
+        data = {"type": self._request_type, "channel": self._channel,
+                "dtype": self.dtype, "data": self.data}
+
+        return json.dumps(data)
 
 
 class MBotJSONResponse(object):

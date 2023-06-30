@@ -9,5 +9,5 @@ subs:
     type: "pose2D_t"
 # The server publishes messages to these channels.
 pubs:
-  - channel: "MBOT_MOTOR_COMMAND"
+  - channel: "MBOT_VEL_CMD"
     type: "twist2d_t"
