@@ -10,7 +10,7 @@ import websockets
 import lcm
 from mbot_bridge.utils import type_utils
 from mbot_bridge.utils.json_helpers import (
-    MBotJSONMessage, MBotJSONError,
+    MBotJSONMessage, MBotJSONResponse, MBotJSONError,
     MBotRequestType, BadMBotRequestError
 )
 
@@ -130,7 +130,7 @@ class MBotBridgeServer(object):
                     latest = self._msg_managers[ch].latest()
                     latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
                     # Wrap the response data for sending over the websocket.
-                    res = MBotJSONMessage(latest, ch, self._msg_managers[ch].dtype, MBotRequestType.RESPONSE)
+                    res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
                     await websocket.send(res.encode())
             elif request.type() == MBotRequestType.PUBLISH:
                 try:

@@ -114,6 +114,21 @@ class MBotJSONMessage(object):
         self._request_type = request_type
 
 
+class MBotJSONRequest(MBotJSONMessage):
+    def __init__(self, channel, dtype=None):
+        super().__init__(channel=channel, dtype=dtype, rtype=MBotRequestType.REQUEST)
+
+
+class MBotJSONResponse(MBotJSONMessage):
+    def __init__(self, data, channel, dtype):
+        super().__init__(data, channel=channel, dtype=dtype, rtype=MBotRequestType.RESPONSE)
+
+
+class MBotJSONPublish(MBotJSONMessage):
+    def __init__(self, data, channel, dtype):
+        super().__init__(data, channel=channel, dtype=dtype, rtype=MBotRequestType.PUBLISH)
+
+
 class MBotJSONError(object):
     def __init__(self, msg="", data=None):
         self.message = msg

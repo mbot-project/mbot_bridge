@@ -1,8 +1,7 @@
 import websockets
 import asyncio
 from mbot_bridge.utils.json_helpers import (
-    MBotJSONMessage, MBotJSONError,
-    MBotRequestType, BadMBotRequestError
+    MBotJSONRequest, MBotJSONPublish
 )
 
 
@@ -15,7 +14,7 @@ class Robot(object):
     """PUBLISHERS"""
 
     async def _send(self, ch, data, dtype):
-        res = MBotJSONMessage(data, ch, dtype, MBotRequestType.PUBLISH)
+        res = MBotJSONPublish(data, ch, dtype)
         async with websockets.connect(self.uri) as websocket:
             await websocket.send(res.encode())
 
@@ -26,7 +25,7 @@ class Robot(object):
     """SUBSCRIBERS"""
 
     async def _request(self, ch):
-        res = MBotJSONMessage(channel=ch, rtype=MBotRequestType.REQUEST)
+        res = MBotJSONRequest(ch)
         async with websockets.connect(self.uri) as websocket:
             await websocket.send(res.encode())
 
