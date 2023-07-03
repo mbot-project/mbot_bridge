@@ -17,5 +17,5 @@ cmd.theta = 0
 
 while True:
     cmd.utime = time.time_ns() // 1000
-    _lcm.publish("ODOMETRY", cmd.encode())
+    _lcm.publish("MBOT_ODOMETRY", cmd.encode())
     time.sleep(0.1)

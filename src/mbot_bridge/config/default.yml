@@ -3,7 +3,7 @@ lcm_address: "udpm://239.255.76.67:7667?ttl=1"
 subs:
   - channel: "LIDAR"
     type: "lidar_t"
-  - channel: "ODOMETRY"
+  - channel: "MBOT_ODOMETRY"
     type: "pose2D_t"
   - channel: "SLAM_POSE"
     type: "pose2D_t"

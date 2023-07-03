@@ -3,13 +3,14 @@ import asyncio
 from mbot_bridge.utils.json_helpers import (
     MBotJSONRequest, MBotJSONPublish
 )
+from mbot_bridge.api import lcm_config
 
 
 class Robot(object):
     """Utility class for controlling the robot."""
 
-    def __init__(self):
-        self.uri = "ws://localhost:5000"
+    def __init__(self, host="localhost", port=5000):
+        self.uri = f"ws://{host}:{port}"
 
     """PUBLISHERS"""
 
@@ -20,7 +21,7 @@ class Robot(object):
 
     def drive(self, vx, vy, wz):
         data = {"vx": vx, "vy": vy, "wz": wz}
-        asyncio.run(self._send("MBOT_VEL_CMD", data, "twist2D_t"))
+        asyncio.run(self._send(lcm_config.MOTOR_VEL_CMD.channel, data, lcm_config.MOTOR_VEL_CMD.dtype))
 
     """SUBSCRIBERS"""
 
@@ -35,7 +36,7 @@ class Robot(object):
         return response
 
     def read_odometry(self):
-        res = asyncio.run(self._request("ODOMETRY"))
+        res = asyncio.run(self._request(lcm_config.ODOMETRY.channel))
         return res
 
     def read_slam_pose(self):
