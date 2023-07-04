@@ -3,7 +3,7 @@ import asyncio
 from mbot_bridge.utils.json_helpers import (
     MBotJSONRequest, MBotJSONPublish
 )
-from mbot_bridge.api import lcm_config
+from mbot_bridge.api.lcm_config import LCMConfig
 
 
 class Robot(object):
@@ -11,6 +11,7 @@ class Robot(object):
 
     def __init__(self, host="localhost", port=5000):
         self.uri = f"ws://{host}:{port}"
+        self.lcm_config = LCMConfig()
 
     """PUBLISHERS"""
 
@@ -21,7 +22,10 @@ class Robot(object):
 
     def drive(self, vx, vy, wz):
         data = {"vx": vx, "vy": vy, "wz": wz}
-        asyncio.run(self._send(lcm_config.MOTOR_VEL_CMD.channel, data, lcm_config.MOTOR_VEL_CMD.dtype))
+        asyncio.run(self._send(self.lcm_config.MOTOR_VEL_CMD.channel, data, self.lcm_config.MOTOR_VEL_CMD.dtype))
+
+    def stop(self):
+        self.drive(0, 0, 0)
 
     """SUBSCRIBERS"""
 
@@ -36,14 +40,16 @@ class Robot(object):
         return response
 
     def read_odometry(self):
-        res = asyncio.run(self._request(lcm_config.ODOMETRY.channel))
+        res = asyncio.run(self._request(self.lcm_config.ODOMETRY.channel))
         return res
 
     def read_slam_pose(self):
-        pass
+        res = asyncio.run(self._request(self.lcm_config.SLAM_POSE.channel))
+        return res
 
     def read_lidar(self):
-        pass
+        res = asyncio.run(self._request(self.lcm_config.LIDAR.channel))
+        return res
 
 
 if __name__ == '__main__':
