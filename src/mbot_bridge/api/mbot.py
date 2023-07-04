@@ -51,15 +51,17 @@ class Robot(object):
             msg = dict_to_lcm_type(response.data(), response.dtype())
             return msg
         else:
-            print("ERROR: Got a bad response type:", response.encode())
+            print("ERROR: Got a bad response:", response.encode())
 
     def read_odometry(self):
         res = asyncio.run(self._request(self.lcm_config.ODOMETRY.channel))
-        return res
+        if res is not None:
+            return [res.x, res.y, res.theta]
 
     def read_slam_pose(self):
         res = asyncio.run(self._request(self.lcm_config.SLAM_POSE.channel))
-        return res
+        if res is not None:
+            return [res.x, res.y, res.theta]
 
     def read_lidar(self):
         res = asyncio.run(self._request(self.lcm_config.LIDAR.channel))
@@ -70,4 +72,4 @@ if __name__ == '__main__':
     robot = Robot()
     robot.drive(0, 0, 0)
     odom = robot.read_odometry()
-    print(odom)
+    print("Odometry:", odom)
