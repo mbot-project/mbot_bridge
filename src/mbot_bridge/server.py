@@ -10,9 +10,9 @@ import websockets
 
 import lcm
 from mbot_bridge.utils import type_utils
-from mbot_bridge.utils.json_helpers import (
+from mbot_bridge.utils.json_messages import (
     MBotJSONMessage, MBotJSONResponse, MBotJSONError,
-    MBotRequestType, BadMBotRequestError
+    MBotMessageType, BadMBotRequestError
 )
 
 
@@ -121,7 +121,7 @@ class MBotBridgeServer(object):
                 await websocket.send(err.encode())
                 continue
 
-            if request.type() == MBotRequestType.REQUEST:
+            if request.type() == MBotMessageType.REQUEST:
                 ch = request.channel()
                 if ch not in self._msg_managers:
                     # If the channel being requested does not exist, return an error.
@@ -141,7 +141,7 @@ class MBotBridgeServer(object):
                     # Wrap the response data for sending over the websocket.
                     res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
                     await websocket.send(res.encode())
-            elif request.type() == MBotRequestType.PUBLISH:
+            elif request.type() == MBotMessageType.PUBLISH:
                 try:
                     # Publish the data sent over the websocket.
                     pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())

@@ -1,11 +1,12 @@
 import json
 
 
-class MBotRequestType(object):
+class MBotMessageType(object):
     INIT = 99
     REQUEST = 0
     PUBLISH = 1
     RESPONSE = 2
+    ERROR = -98
     INVALID = -99
 
 
@@ -18,10 +19,10 @@ class MBotJSONMessage(object):
         if from_json:
             self.decode(data)
         else:
-            if rtype not in [MBotRequestType.INIT, MBotRequestType.REQUEST,
-                             MBotRequestType.PUBLISH, MBotRequestType.RESPONSE,
-                             MBotRequestType.INVALID]:
-                raise Exception(f"Invalid message type: {rtype}")
+            if rtype not in [MBotMessageType.INIT, MBotMessageType.REQUEST,
+                             MBotMessageType.PUBLISH, MBotMessageType.RESPONSE,
+                             MBotMessageType.ERROR, MBotMessageType.INVALID]:
+                raise AttributeError(f"Invalid message type: {rtype}")
             self._request_type = rtype
             self._data = data
             self._channel = channel
@@ -40,14 +41,16 @@ class MBotJSONMessage(object):
         return self._channel
 
     def encode(self):
-        if self._request_type == MBotRequestType.INIT:
+        if self._request_type == MBotMessageType.INIT:
             rtype = "init"
-        elif self._request_type == MBotRequestType.PUBLISH:
+        elif self._request_type == MBotMessageType.PUBLISH:
             rtype = "publish"
-        elif self._request_type == MBotRequestType.REQUEST:
+        elif self._request_type == MBotMessageType.REQUEST:
             rtype = "request"
-        elif self._request_type == MBotRequestType.RESPONSE:
+        elif self._request_type == MBotMessageType.RESPONSE:
             rtype = "response"
+        elif self._request_type == MBotMessageType.ERROR:
+            rtype = "error"
         else:
             rtype = "invalid"
 
@@ -78,20 +81,22 @@ class MBotJSONMessage(object):
 
         # Parse the type.
         if request_type == "request":
-            request_type = MBotRequestType.REQUEST
+            request_type = MBotMessageType.REQUEST
         elif request_type == "publish":
-            request_type = MBotRequestType.PUBLISH
+            request_type = MBotMessageType.PUBLISH
         elif request_type == "response":
-            request_type = MBotRequestType.RESPONSE
+            request_type = MBotMessageType.RESPONSE
+        elif request_type == "error":
+            request_type = MBotMessageType.ERROR
         elif request_type == "init":
-            request_type = MBotRequestType.INIT
+            request_type = MBotMessageType.INIT
         else:
-            request_type = MBotRequestType.INVALID
+            request_type = MBotMessageType.INVALID
             raise BadMBotRequestError(f"Invalid request type: \"{request_type}\"")
 
         # The request should have a channel if it is a publish or a request type.
         channel = None
-        if request_type == MBotRequestType.REQUEST or request_type == MBotRequestType.PUBLISH:
+        if request_type == MBotMessageType.REQUEST or request_type == MBotMessageType.PUBLISH:
             try:
                 channel = data["channel"]
             except KeyError:
@@ -105,7 +110,7 @@ class MBotJSONMessage(object):
             dtype = data["dtype"]
 
         # If this was a publish request, data is required.
-        if request_type == MBotRequestType.PUBLISH and (msg_data is None or dtype is None):
+        if request_type == MBotMessageType.PUBLISH and (msg_data is None or dtype is None):
             raise BadMBotRequestError("Publish was requested but data or data type is missing.")
 
         self._channel = channel
@@ -116,26 +121,19 @@ class MBotJSONMessage(object):
 
 class MBotJSONRequest(MBotJSONMessage):
     def __init__(self, channel, dtype=None):
-        super().__init__(channel=channel, dtype=dtype, rtype=MBotRequestType.REQUEST)
+        super().__init__(channel=channel, dtype=dtype, rtype=MBotMessageType.REQUEST)
 
 
 class MBotJSONResponse(MBotJSONMessage):
     def __init__(self, data, channel, dtype):
-        super().__init__(data, channel=channel, dtype=dtype, rtype=MBotRequestType.RESPONSE)
+        super().__init__(data, channel=channel, dtype=dtype, rtype=MBotMessageType.RESPONSE)
 
 
 class MBotJSONPublish(MBotJSONMessage):
     def __init__(self, data, channel, dtype):
-        super().__init__(data, channel=channel, dtype=dtype, rtype=MBotRequestType.PUBLISH)
+        super().__init__(data, channel=channel, dtype=dtype, rtype=MBotMessageType.PUBLISH)
 
 
-class MBotJSONError(object):
-    def __init__(self, msg="", data=None):
-        self.message = msg
-        self.data = data
-
-    def encode(self):
-        data = {"type": "error", "msg": self.message}
-        if self.data is not None:
-            data.update({"data": self.data})
-        return json.dumps(data)
+class MBotJSONError(MBotJSONMessage):
+    def __init__(self, msg):
+        super().__init__(msg, rtype=MBotMessageType.ERROR)
