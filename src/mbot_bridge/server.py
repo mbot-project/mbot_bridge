@@ -105,54 +105,60 @@ class MBotBridgeServer(object):
             # the non-blocking handleOnce.
             self._lcm.handle_timeout(self._lcm_timeout)
 
-    async def handler(self, websocket):
-        logging.debug(f"Websocket connected with ID: {websocket.id}")
+    async def process_msg(self, websocket, message):
+        try:
+            request = MBotJSONMessage(message, from_json=True)
+        except BadMBotRequestError as e:
+            # If something went wrong parsing this request, send the error message then continue.
+            msg = f"Bad MBot request. Ignoring. BadMBotRequestError: {e}"
+            logging.warning(f"{websocket.id} - {msg}")
+            err = MBotJSONError(msg)
+            await websocket.send(err.encode())
+            return
 
-        # Handle all incoming messages from the websocket.
-        async for message in websocket:
-            logging.debug(f"Message from WS {websocket.id}: {message}")
-            try:
-                request = MBotJSONMessage(message, from_json=True)
-            except BadMBotRequestError as e:
-                # If something went wrong parsing this request, send the error message then continue.
-                msg = f"Bad MBot request. Ignoring. BadMBotRequestError: {e}"
+        if request.type() == MBotMessageType.REQUEST:
+            ch = request.channel()
+            if ch not in self._msg_managers:
+                # If the channel being requested does not exist, return an error.
+                msg = f"Bad MBot request. No channel: {ch}"
                 logging.warning(f"{websocket.id} - {msg}")
                 err = MBotJSONError(msg)
                 await websocket.send(err.encode())
-                continue
+            elif self._msg_managers[ch].empty():
+                msg = f"No data on channel: {ch}"
+                logging.warning(f"{websocket.id} - {msg}")
+                err = MBotJSONError(msg)
+                await websocket.send(err.encode())
+            else:
+                # Get the newest data.
+                latest = self._msg_managers[ch].latest()
+                latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
+                # Wrap the response data for sending over the websocket.
+                res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+                await websocket.send(res.encode())
+        elif request.type() == MBotMessageType.PUBLISH:
+            try:
+                # Publish the data sent over the websocket.
+                pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
+                self._lcm.publish(request.channel(), pub_msg.encode())
+            except AttributeError as e:
+                # If the type or data is bad, send back an error message.
+                msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
+                       f"AttributeError: {e}")
+                logging.warning(f"{websocket.id} - {msg}")
+                err = MBotJSONError(msg)
+                await websocket.send(err.encode())
 
-            if request.type() == MBotMessageType.REQUEST:
-                ch = request.channel()
-                if ch not in self._msg_managers:
-                    # If the channel being requested does not exist, return an error.
-                    msg = f"Bad MBot request. No channel: {ch}"
-                    logging.warning(f"{websocket.id} - {msg}")
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
-                elif self._msg_managers[ch].empty():
-                    msg = f"No data on channel: {ch}"
-                    logging.warning(f"{websocket.id} - {msg}")
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
-                else:
-                    # Get the newest data.
-                    latest = self._msg_managers[ch].latest()
-                    latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
-                    # Wrap the response data for sending over the websocket.
-                    res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
-                    await websocket.send(res.encode())
-            elif request.type() == MBotMessageType.PUBLISH:
-                try:
-                    # Publish the data sent over the websocket.
-                    pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
-                    self._lcm.publish(request.channel(), pub_msg.encode())
-                except AttributeError as e:
-                    # If the type or data is bad, send back an error message.
-                    msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
-                           f"AttributeError: {e}")
-                    logging.warning(f"{websocket.id} - {msg}")
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
+    async def handler(self, websocket):
+        logging.debug(f"Websocket connected with ID: {websocket.id}")
+
+        try:
+            # Handle all incoming messages from the websocket.
+            async for message in websocket:
+                logging.debug(f"Message from WS {websocket.id}: {message}")
+                await self.process_msg(websocket, message)
+        except websockets.exceptions.ConnectionClosedOK:
+            logging.debug(f"Websocket connection closed: {websocket.id}")
 
 
 async def main(args):
