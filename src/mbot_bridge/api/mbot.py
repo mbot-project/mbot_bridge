@@ -58,18 +58,18 @@ class Robot(object):
         if res is not None:
             return [res.x, res.y, res.theta]
 
+        return []
+
     def read_slam_pose(self):
         res = asyncio.run(self._request(self.lcm_config.SLAM_POSE.channel))
         if res is not None:
             return [res.x, res.y, res.theta]
 
+        return []
+
     def read_lidar(self):
         res = asyncio.run(self._request(self.lcm_config.LIDAR.channel))
-        return res
+        if res is not None:
+            return res.ranges, res.thetas
 
-
-if __name__ == '__main__':
-    robot = Robot()
-    robot.drive(0, 0, 0)
-    odom = robot.read_odometry()
-    print("Odometry:", odom)
+        return [], []
