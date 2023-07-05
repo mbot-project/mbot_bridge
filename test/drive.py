@@ -1,5 +1,5 @@
 import time
-from mbot_bridge.api.mbot import Robot
+from mbot_bridge.api import Robot
 
 # Initialize a robot object.
 robot = Robot()

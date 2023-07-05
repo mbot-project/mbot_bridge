@@ -4,7 +4,7 @@ from mbot_bridge.utils.type_utils import dict_to_lcm_type
 from mbot_bridge.utils.json_messages import (
     MBotJSONRequest, MBotJSONPublish, MBotJSONMessage, MBotMessageType
 )
-from mbot_bridge.api.lcm_config import LCMConfig
+from .lcm_config import LCMConfig
 
 
 class Robot(object):
