@@ -10,7 +10,7 @@ from mbot_bridge.api.lcm_config import LCMConfig
 class Robot(object):
     """Utility class for controlling the robot."""
 
-    def __init__(self, host="localhost", port=5000):
+    def __init__(self, host="localhost", port=5005):
         self.uri = f"ws://{host}:{port}"
         self.lcm_config = LCMConfig()
 

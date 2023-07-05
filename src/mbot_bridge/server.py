@@ -174,7 +174,7 @@ async def main(args):
     async with websockets.serve(
         lcm_manager.handler,
         host="",
-        port=5000,
+        port=args.port,
         reuse_port=True,
     ):
         await stop
@@ -186,6 +186,7 @@ async def main(args):
 def load_args(conf="config/default.yml"):
     parser = argparse.ArgumentParser(description="MBot Bridge Server.")
     parser.add_argument("--config", type=str, default=conf, help="Configuration file.")
+    parser.add_argument("--port", type=int, default=5005, help="Websocket port.")
     parser.add_argument("--log-file", type=str, default="mbot_bridge_server.log", help="Log file.")
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
@@ -202,12 +203,12 @@ def load_args(conf="config/default.yml"):
 
 
 if __name__ == "__main__":
+    import os
     import argparse
-    import importlib.resources as pkg_resources
     from . import config
     from logging import handlers
 
-    DEFAULT_CONFIG = pkg_resources.path(config, 'default.yml')
+    DEFAULT_CONFIG = os.path.join(config.__path__[0], 'default.yml')
 
     args = load_args(DEFAULT_CONFIG)
 
