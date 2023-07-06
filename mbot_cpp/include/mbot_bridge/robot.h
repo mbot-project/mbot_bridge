@@ -33,12 +33,18 @@ class MBotWSCommBase
 {
 public:
     MBotWSCommBase(const std::string& uri = "ws://localhost:5005") :
-        uri_(uri)
+        uri_(uri),
+        failed_(false)
     {
         // Set logging to be pretty verbose (everything except message payloads)
-        c_.set_access_channels(websocketpp::log::alevel::all);
-        c_.clear_access_channels(websocketpp::log::alevel::frame_payload);
-        c_.set_error_channels(websocketpp::log::elevel::all);
+        // c_.set_access_channels(websocketpp::log::alevel::all);
+        // c_.clear_access_channels(websocketpp::log::alevel::frame_payload);
+        // c_.set_error_channels(websocketpp::log::elevel::all);
+        c_.clear_access_channels(websocketpp::log::alevel::all);
+        c_.clear_error_channels(websocketpp::log::elevel::all);
+
+        // m_endpoint.set_fail_handler(bind(&type::on_fail,this,::_1));
+        c_.set_fail_handler(websocketpp::lib::bind(&MBotWSCommBase::on_fail, this, ::_1));
 
         // Initialize ASIO
         c_.init_asio();
@@ -46,6 +52,7 @@ public:
 
     int run()
     {
+        failed_ = false;
         try {
             websocketpp::lib::error_code ec;
             WSClient::connection_ptr con = c_.get_connection(uri_, ec);
@@ -72,6 +79,13 @@ public:
 protected:
     WSClient c_;
     std::string uri_;
+    bool failed_;
+
+    void on_fail(websocketpp::connection_hdl hdl)
+    {
+        std::cout << "WARNING: Connection to MBot Bridge failed." << std::endl;
+        failed_ = true;
+    }
 };
 
 
@@ -123,7 +137,10 @@ public:
         return data_;
     }
 
-    bool success() const { return res_type_ == MBotMessageType::RESPONSE; };
+    bool success() const
+    {
+        return res_type_ == MBotMessageType::RESPONSE && !failed_;
+    };
 
     MBotMessageType getResponseType() const { return res_type_; }
 
