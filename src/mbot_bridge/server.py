@@ -159,6 +159,8 @@ class MBotBridgeServer(object):
                 await self.process_msg(websocket, message)
         except websockets.exceptions.ConnectionClosedOK:
             logging.debug(f"Websocket connection closed: {websocket.id}")
+        except websockets.exceptions.ConnectionClosedError:
+            logging.warning(f"Websocket closed with error: {websocket.id}")
 
 
 async def main(args):
