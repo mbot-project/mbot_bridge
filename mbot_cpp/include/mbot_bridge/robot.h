@@ -123,6 +123,8 @@ public:
         return data_;
     }
 
+    bool success() const { return res_type_ == MBotMessageType::RESPONSE; };
+
     MBotMessageType getResponseType() const { return res_type_; }
 
 private:
@@ -142,8 +144,20 @@ private:
         std::cout << "Message received: " << msg->get_payload() << std::endl;
         MBotJSONMessage in_msg;
         in_msg.decode(msg->get_payload());
-        data_ = stringToLCMType(in_msg.data());
         res_type_ = in_msg.type();
+
+        if (res_type_ == MBotMessageType::RESPONSE)
+        {
+            data_ = stringToLCMType(in_msg.data());
+        }
+        else if (res_type_ == MBotMessageType::ERROR)
+        {
+            std::cout << "WARNING: Read failed. " << in_msg.data() << std::endl;
+        }
+        else
+        {
+            std::cout << "WARNING: Read failed." << std::endl;
+        }
 
         // Once we get the message back, we can stop listening.
         c_.close(hdl, websocketpp::close::status::normal, "");
@@ -174,9 +188,15 @@ public:
     {
         MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(ODOMETRY_CHANNEL);
         reader.run();
-        mbot_lcm_msgs::pose2D_t data = reader.getData();
 
-        std::vector<float> odom = {data.x, data.y, data.theta};
+        std::vector<float> odom;
+        // Only populate the odometry vector if the read was successful.
+        if (reader.success())
+        {
+            mbot_lcm_msgs::pose2D_t data = reader.getData();
+            odom = {data.x, data.y, data.theta};
+        }
+
         return odom;
     }
 
