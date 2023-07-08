@@ -4,6 +4,9 @@ from mbot_bridge.api import Robot
 # Initialize a robot object.
 robot = Robot()
 
+# Read hostname.
+print("Robot hostname:", robot.read_hostname())
+
 # Read the latest odometry message.
 odom = robot.read_odometry()
 print("Odometry:", odom)

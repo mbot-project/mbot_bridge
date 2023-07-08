@@ -59,7 +59,10 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, subs=[], lcm_timeout=1000):
+    def __init__(self, lcm_address, subs=[], lcm_timeout=1000, hostfile="/etc/hostname"):
+        self._hostname = self._read_hostname(hostfile)
+
+        # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
         self._lcm = lcm.LCM(lcm_address)
 
@@ -72,6 +75,7 @@ class MBotBridgeServer(object):
         self._running = True
         self._lock = threading.Lock()
 
+        logging.info(f"Hostname: {self._hostname}")
         logging.info(f"Connecting to LCM on address: {lcm_address}")
         logging.info("Listening on channels:")
         for ch in subs:
@@ -88,6 +92,17 @@ class MBotBridgeServer(object):
         res = self._running
         self._lock.release()
         return res
+
+    def _read_hostname(self, hostfile):
+        if not os.path.exists(hostfile):
+            logging.warning(f"Host file does not exist, hostname will be empty. Host file: {hostfile}")
+            return ""
+
+        # Read the robot's host name.
+        with open(hostfile, 'r') as f:
+            name = f.read()
+
+        return name.strip()
 
     def listener(self, channel, data):
         self._msg_managers[channel].push(data, decode=True)
@@ -118,7 +133,11 @@ class MBotBridgeServer(object):
 
         if request.type() == MBotMessageType.REQUEST:
             ch = request.channel()
-            if ch not in self._msg_managers:
+            if ch == "HOSTNAME":
+                # If hostname, return the hostname as a string.
+                res = MBotJSONResponse(self._hostname, ch, "")
+                await websocket.send(res.encode())
+            elif ch not in self._msg_managers:
                 # If the channel being requested does not exist, return an error.
                 msg = f"Bad MBot request. No channel: {ch}"
                 logging.warning(f"{websocket.id} - {msg}")
@@ -174,7 +193,7 @@ async def main(args):
     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
 
-    lcm_manager = MBotBridgeServer(config["lcm_address"], config["subs"])
+    lcm_manager = MBotBridgeServer(config["lcm_address"], config["subs"], hostfile=args.host_file)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
@@ -198,6 +217,7 @@ def load_args(conf="config/default.yml"):
     parser.add_argument("--log-file", type=str, default="mbot_bridge_server.log", help="Log file.")
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
+    parser.add_argument("--host-file", type=str, default="/etc/hostname", help="Hostname file.")
 
     args = parser.parse_args()
 
