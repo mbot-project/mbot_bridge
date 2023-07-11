@@ -1,5 +1,9 @@
 window.addEventListener("DOMContentLoaded", () => {
   console.log("Hello!", window.location.host)
+  const robot = new Robot();
+  robot.drive(0, 0, 0);
+  robot.readOdometry((odom) => {console.log("Odom:", odom);});
+
   const websocket = new WebSocket("ws://localhost:5000/");
 
   websocket.onopen = (event) => {
