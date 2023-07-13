@@ -4,6 +4,8 @@ const MBotMessageType = {
   REQUEST: 0,
   PUBLISH: 1,
   RESPONSE: 2,
+  SUBSCRIBE: 3,
+  UNSUBSCRIBE: 4,
   ERROR: -98,
   INVALID: -99
 };
@@ -28,6 +30,10 @@ class MBotJSONMessage {
         rtype = "request";
     else if (this.rtype === MBotMessageType.RESPONSE)
         rtype = "response";
+    else if (this.rtype === MBotMessageType.SUBSCRIBE)
+        rtype = "subscribe";
+    else if (this.rtype === MBotMessageType.UNSUBSCRIBE)
+        rtype = "unsubscribe";
     else if (this.rtype === MBotMessageType.ERROR)
         rtype = "error";
 
@@ -44,7 +50,7 @@ class MBotJSONMessage {
     data = JSON.parse(data);
 
     // Get the type and channel for the request.
-    if (data.type === "undefined") {
+    if (data.type === undefined) {
       return;
     }
     let request_type = data.type;
@@ -71,9 +77,9 @@ class MBotJSONMessage {
     let channel = null;
     let msg_data = null;
     let dtype = null;
-    if (data.channel !== "undefined") channel = data.channel;
-    if (data.data !== "undefined") msg_data = data.data;
-    if (data.dtype !== "undefined") dtype = data.dtype;
+    if (data.channel !== undefined) channel = data.channel;
+    if (data.data !== undefined) msg_data = data.data;
+    if (data.dtype !== undefined) dtype = data.dtype;
 
     // TODO: Raise errors for bad data combinations.
 
