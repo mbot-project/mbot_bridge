@@ -2,6 +2,7 @@
 class Robot {
   constructor(hostname="localhost", port=5005) {
     this.address = "ws://" + hostname + ":" + port;
+    this.ws_subs = {};
   }
 
   async _read(ch) {
@@ -44,6 +45,29 @@ class Robot {
       websocket.send(msg.encode());
       websocket.close();
     };
+  }
+
+  subscribe(ch, cb) {
+    let msg = new MBotJSONMessage(null, ch, null, MBotMessageType.SUBSCRIBE);
+    const websocket = new WebSocket(this.address);
+    this.ws_subs[ch] = websocket;
+
+    websocket.onopen = (event) => {
+      websocket.send(msg.encode());
+    };
+
+    websocket.onmessage = (event) => {
+      cb(event.data);
+    };
+  }
+
+  unsubscribe(ch) {
+    if (this.ws_subs[ch] === undefined || this.ws_subs[ch] === null) return;
+
+    let msg = new MBotJSONMessage(null, ch, null, MBotMessageType.UNSUBSCRIBE);
+    this.ws_subs[ch].send(msg.encode());
+    this.ws_subs[ch].close();
+    this.ws_subs[ch] = null;
   }
 
   drive(vx, vy, wz) {
