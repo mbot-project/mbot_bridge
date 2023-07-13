@@ -61,15 +61,19 @@ class LCMMessageQueue(object):
 class MBotBridgeServer(object):
     def __init__(self, lcm_address, subs=[], lcm_timeout=1000, hostfile="/etc/hostname"):
         self._hostname = self._read_hostname(hostfile)
+        self._loop = None
 
         # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
         self._lcm = lcm.LCM(lcm_address)
 
         self._msg_managers = {}
+        self._subs = {}
         for channel in subs:
             ch, lcm_type = channel["channel"], channel["type"]
-            self._msg_managers.update({channel["channel"]: LCMMessageQueue(ch, lcm_type)})
+            self._subs.update({ch: []})
+
+            self._msg_managers.update({ch: LCMMessageQueue(ch, lcm_type)})
             self._lcm.subscribe(ch, self.listener)
 
         self._running = True
@@ -104,8 +108,27 @@ class MBotBridgeServer(object):
 
         return name.strip()
 
+    def _latest_as_msg(self, ch):
+        latest = self._msg_managers[ch].latest()
+        latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
+        # Wrap the response data for sending over the websocket.
+        res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+        return res
+
     def listener(self, channel, data):
         self._msg_managers[channel].push(data, decode=True)
+
+        # If there are subscribers, send them the data.
+        if len(self._subs[channel]) > 0:
+            res = self._latest_as_msg(channel).encode()
+            for ws_sub in self._subs[channel]:
+                try:
+                    self._loop.run_until_complete(ws_sub.send(res))
+                except (websockets.exceptions.ConnectionClosedOK,
+                        websockets.exceptions.ConnectionClosedError):
+                    # If this websocket is closed, remove it.
+                    logging.debug(f"Websocket ID {ws_sub.id} - Disconnected and unsubscribed from {channel}")
+                    self._subs[channel].remove(ws_sub)
 
     def handleOnce(self):
         # This is a non-blocking handle, which only calls handle if a message is ready.
@@ -114,11 +137,18 @@ class MBotBridgeServer(object):
             self._lcm.handle()
 
     def lcm_loop(self):
+        self._loop = asyncio.new_event_loop()
         while self.running():
             # This will block for a maximum of _lcm_timeout milliseconds, so it
             # might slow stopping the server, but it's less expensive than using
             # the non-blocking handleOnce.
             self._lcm.handle_timeout(self._lcm_timeout)
+
+    def _subscribe(self, ws, channel):
+        self._subs[channel].append(ws)
+
+    def _unsubscribe(self, ws, channel=None):
+        self._subs[channel].remove(ws)
 
     async def process_msg(self, websocket, message):
         try:
@@ -150,10 +180,7 @@ class MBotBridgeServer(object):
                 await websocket.send(err.encode())
             else:
                 # Get the newest data.
-                latest = self._msg_managers[ch].latest()
-                latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
-                # Wrap the response data for sending over the websocket.
-                res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+                res = self._latest_as_msg(ch)
                 await websocket.send(res.encode())
         elif request.type() == MBotMessageType.PUBLISH:
             try:
@@ -167,6 +194,12 @@ class MBotBridgeServer(object):
                 logging.warning(f"{websocket.id} - {msg}")
                 err = MBotJSONError(msg)
                 await websocket.send(err.encode())
+        elif request.type() == MBotMessageType.SUBSCRIBE:
+            logging.debug(f"Websocket ID {websocket.id} - Subscribed to channel {request.channel()}")
+            self._subscribe(websocket, request.channel())
+        elif request.type() == MBotMessageType.UNSUBSCRIBE:
+            logging.debug(f"Websocket ID {websocket.id} - Unsubscribed from channel {request.channel()}")
+            self._unsubscribe(websocket, request.channel())
 
     async def handler(self, websocket):
         logging.debug(f"Websocket connected with ID: {websocket.id}")
@@ -193,7 +226,7 @@ async def main(args):
     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
 
-    lcm_manager = MBotBridgeServer(config["lcm_address"], config["subs"], hostfile=args.host_file)
+    lcm_manager = MBotBridgeServer(config["lcm_address"], subs=config["subs"], hostfile=args.host_file)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
