@@ -7,6 +7,8 @@ subs:
     type: "pose2D_t"
   - channel: "SLAM_POSE"
     type: "pose2D_t"
+  - channel: "SBP_PARTICLES"
+    type: "sbp_particles"
 # The server publishes messages to these channels.
 pubs:
   - channel: "MBOT_VEL_CMD"
