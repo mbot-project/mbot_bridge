@@ -4,14 +4,15 @@ import yaml
 import asyncio
 import signal
 import select
+import logging
 import threading
 import websockets
 
 import lcm
 from mbot_bridge.utils import type_utils
-from mbot_bridge.utils.json_helpers import (
-    MBotJSONRequest, MBotJSONResponse, MBotJSONError,
-    MBotRequestType, BadMBotRequestError
+from mbot_bridge.utils.json_messages import (
+    MBotJSONMessage, MBotJSONResponse, MBotJSONError,
+    MBotMessageType, BadMBotRequestError
 )
 
 
@@ -53,6 +54,9 @@ class LCMMessageQueue(object):
         self._lock.release()
         return first
 
+    def empty(self):
+        return len(self._queue) == 0
+
 
 class MBotBridgeServer(object):
     def __init__(self, lcm_address, subs=[], lcm_timeout=1000):
@@ -67,6 +71,12 @@ class MBotBridgeServer(object):
 
         self._running = True
         self._lock = threading.Lock()
+
+        logging.info(f"Connecting to LCM on address: {lcm_address}")
+        logging.info("Listening on channels:")
+        for ch in subs:
+            logging.info(f"    {ch['channel']} ({ch['type']})")
+        logging.info("MBot Bridge Server running!")
 
     def stop(self, *args):
         self._lock.acquire()
@@ -96,47 +106,57 @@ class MBotBridgeServer(object):
             self._lcm.handle_timeout(self._lcm_timeout)
 
     async def handler(self, websocket):
+        logging.debug(f"Websocket connected with ID: {websocket.id}")
+
+        # Handle all incoming messages from the websocket.
         async for message in websocket:
+            logging.debug(f"Message from WS {websocket.id}: {message}")
             try:
-                message = MBotJSONRequest(message)
+                request = MBotJSONMessage(message, from_json=True)
             except BadMBotRequestError as e:
                 # If something went wrong parsing this request, send the error message then continue.
                 msg = f"Bad MBot request. Ignoring. BadMBotRequestError: {e}"
-                print(msg)
+                logging.warning(f"{websocket.id} - {msg}")
                 err = MBotJSONError(msg)
-                await websocket.send(err.as_json())
+                await websocket.send(err.encode())
                 continue
 
-            if message.type() == MBotRequestType.REQUEST:
-                ch = message.channel()
+            if request.type() == MBotMessageType.REQUEST:
+                ch = request.channel()
                 if ch not in self._msg_managers:
                     # If the channel being requested does not exist, return an error.
                     msg = f"Bad MBot request. No channel: {ch}"
-                    print(msg)
+                    logging.warning(f"{websocket.id} - {msg}")
                     err = MBotJSONError(msg)
-                    await websocket.send(err.as_json())
+                    await websocket.send(err.encode())
+                elif self._msg_managers[ch].empty():
+                    msg = f"No data on channel: {ch}"
+                    logging.warning(f"{websocket.id} - {msg}")
+                    err = MBotJSONError(msg)
+                    await websocket.send(err.encode())
                 else:
                     # Get the newest data.
                     latest = self._msg_managers[ch].latest()
                     latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
                     # Wrap the response data for sending over the websocket.
-                    res = MBotJSONResponse(ch, latest, self._msg_managers[ch].dtype)
-                    await websocket.send(res.as_json())
-            elif message.type() == MBotRequestType.PUBLISH:
+                    res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+                    await websocket.send(res.encode())
+            elif request.type() == MBotMessageType.PUBLISH:
                 try:
                     # Publish the data sent over the websocket.
-                    pub_msg = type_utils.dict_to_lcm_type(message.data, message.dtype)
-                    self._lcm.publish(message.channel(), pub_msg.encode())
+                    pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
+                    self._lcm.publish(request.channel(), pub_msg.encode())
                 except AttributeError as e:
                     # If the type or data is bad, send back an error message.
-                    msg = (f"Bad MBot publish. Bad message type ({message.dtype}) or data (\"{message.data}\"). "
+                    msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
                            f"AttributeError: {e}")
-                    print(msg)
+                    logging.warning(f"{websocket.id} - {msg}")
                     err = MBotJSONError(msg)
-                    await websocket.send(err.as_json())
+                    await websocket.send(err.encode())
 
 
 async def main(args):
+    logging.info(f"Reading configuration from: {args.config}")
     with open(args.config, 'r') as f:
         config = yaml.load(f, Loader=yaml.Loader)
 
@@ -154,30 +174,54 @@ async def main(args):
     async with websockets.serve(
         lcm_manager.handler,
         host="",
-        port=5000,
+        port=args.port,
         reuse_port=True,
     ):
         await stop
         lcm_manager.stop()
 
-    print("MBot Bridge: Exited cleanly.")
+    logging.info("MBot Bridge exited cleanly.")
 
 
 def load_args(conf="config/default.yml"):
     parser = argparse.ArgumentParser(description="MBot Bridge Server.")
     parser.add_argument("--config", type=str, default=conf, help="Configuration file.")
+    parser.add_argument("--port", type=int, default=5005, help="Websocket port.")
+    parser.add_argument("--log-file", type=str, default="mbot_bridge_server.log", help="Log file.")
+    parser.add_argument("--log", type=str, default="INFO", help="Log level.")
+    parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
 
     args = parser.parse_args()
+
+    # Turn the logging level into the correct form.
+    numeric_level = getattr(logging, args.log.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f'Invalid log level: {args.log}')
+    args.log = numeric_level
 
     return args
 
 
 if __name__ == "__main__":
+    import os
     import argparse
-    import importlib.resources as pkg_resources
     from . import config
+    from logging import handlers
 
-    DEFAULT_CONFIG = pkg_resources.path(config, 'default.yml')
+    DEFAULT_CONFIG = os.path.join(config.__path__[0], 'default.yml')
 
     args = load_args(DEFAULT_CONFIG)
+
+    # Setup logging.
+    file_handler = handlers.RotatingFileHandler(args.log_file, maxBytes=args.max_log_size)
+    logging.basicConfig(level=args.log,
+                        handlers=[
+                            file_handler,
+                            logging.StreamHandler()  # Also print to terminal.
+                        ],
+                        format='%(asctime)s [%(name)s] [%(levelname)s] %(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p')
+    # Websocket messages are too noisy, make sure they aren't higher than warning.
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+
     asyncio.run(main(args))
