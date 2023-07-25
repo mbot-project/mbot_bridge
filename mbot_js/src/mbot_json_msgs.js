@@ -89,3 +89,5 @@ class MBotJSONMessage {
     this.rtype = request_type;
   }
 }
+
+export { MBotMessageType, MBotJSONMessage };

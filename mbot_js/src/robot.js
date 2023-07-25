@@ -1,3 +1,6 @@
+import { MBotMessageType, MBotJSONMessage } from "./mbot_json_msgs.js";
+import config from "./lcm_config.js";
+
 
 class Robot {
   constructor(hostname="localhost", port=5005) {
@@ -88,3 +91,5 @@ class Robot {
     await waitForData;
   }
 }
+
+export { Robot };

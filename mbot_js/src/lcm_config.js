@@ -12,4 +12,4 @@ let config = {
   SLAM_POSE: {channel: "SLAM_POSE", dtype: "pose2D_t"}
 }
 
-// export default config;
+export default config;
