@@ -25,9 +25,9 @@ The `--config` argument is optional and will default to `src/mbot_bridge/config/
 
 To use the C++ API, first install the websocket library at the latest release version:
 ```bash
-git clone git@github.com:zaphoyd/websocketpp.git
-cd websocketpp
-git checkout 0.8.2
+wget https://github.com/zaphoyd/websocketpp/archive/refs/tags/0.8.2.tar.gz
+tar -xzf 0.8.2.tar.gz
+cd websocketpp-0.8.2/
 mkdir build && cd build
 cmake ..
 make
