@@ -33,13 +33,12 @@ cmake ..
 make
 sudo make install
 ```
-Then, compile this code in the root of this directory:
+Then, compile the C++ API:
 ```bash
-mkdir build && cd build
-cmake ..
-make
+cd mbot_bridge
+python setup.py build_ext
 ```
 A test script is available at:
 ```bash
-./mbot_cpp/mbot_cpp_test
+./build/mbot_cpp_test
 ```
