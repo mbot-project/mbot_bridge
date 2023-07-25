@@ -10,7 +10,6 @@ Dependencies:
 ## Install Instructions
 
 ```bash
-pip install -r requirements.txt
 pip install -e .
 ```
 
