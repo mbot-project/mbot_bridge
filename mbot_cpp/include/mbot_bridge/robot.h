@@ -201,6 +201,22 @@ public:
         pub.run();
     }
 
+    void stop() const
+    {
+        drive(0, 0, 0);
+    }
+
+    void reset_odometry() const
+    {
+        mbot_lcm_msgs::pose2D_t msg;
+        msg.x = 0;
+        msg.y = 0;
+        msg.theta = 0;
+
+        MBotBridgePublisher<mbot_lcm_msgs::pose2D_t> pub(ODOMETRY_RESET_CHANNEL, msg, ODOMETRY_RESET_TYPE, uri_);
+        pub.run();
+    }
+
     std::vector<float> read_odometry() const
     {
         MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(ODOMETRY_CHANNEL);

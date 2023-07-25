@@ -9,9 +9,18 @@
 
 #include "json_utils.h"
 
+// Subs.
 #define ODOMETRY_CHANNEL "MBOT_ODOMETRY"
+#define SLAM_POSE_CHANNEL "SLAM_POSE"
+#define SLAM_MAP_CHANNEL "SLAM_MAP"
+#define LIDAR_CHANNEL "LIDAR"
+// Pubs.
+#define ODOMETRY_RESET_CHANNEL "MBOT_ODOMETRY_RESET"
+#define ODOMETRY_RESET_TYPE "pose2D_t"
 #define MBOT_VEL_CMD_CHANNEL "MBOT_VEL_CMD"
 #define MBOT_VEL_CMD_TYPE "twist2D_t"
+#define CONTROLLER_PATH_CHANNEL "CONTROLLER_PATH"
+#define CONTROLLER_PATH_TYPE "path2D_t"
 
 
 static inline std::string lcmTypeToString(const mbot_lcm_msgs::twist2D_t& data)

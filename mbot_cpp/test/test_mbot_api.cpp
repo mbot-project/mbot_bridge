@@ -10,4 +10,6 @@ int main(int argc, char* argv[])
     std::cout << "Odometry: ";
     for (auto& ele : odom) std::cout << ele << " ";
     std::cout << std::endl;
+
+    robot.reset_odometry();
 }
