@@ -42,3 +42,25 @@ A test script is available at:
 ```bash
 ./build/mbot_cpp_test
 ```
+
+## JavaScript API
+
+The JavaScript API can be installed using NPM as follows:
+```bash
+cd mbot_js
+npm install
+npm run build
+```
+Then include the bundled script `mbot_js/dist/main.js` where you want to use the API. To create a robot object, do:
+```javascript
+const robot = new MBotAPI.Robot(robotIP);
+```
+where `robotIP` is the IP address of the robot.
+
+### Usage
+
+To test the JS API, a test script is available in the `test` directory. To use it, start an HTTP server in the root of this repo:
+```bash
+python -m http.server
+```
+Then navigate to `http://[HOST_IP]:8000` in a browser. If running locally, use the IP `localhost`.
