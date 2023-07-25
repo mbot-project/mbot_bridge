@@ -11,3 +11,5 @@ subs:
 pubs:
   - channel: "MBOT_VEL_CMD"
     type: "twist2d_t"
+  - channel: "RESET_ODOMETRY"
+    type: "pose2D_t"
