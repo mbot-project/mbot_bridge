@@ -48,10 +48,21 @@ class Robot(object):
 
         # If this was a response as expected, convert it to an LCM message and return.
         if response.type() == MBotMessageType.RESPONSE:
+            if ch == "HOSTNAME":
+                # Hostname is not an LCM message.
+                return response.data()
+
             msg = dict_to_lcm_type(response.data(), response.dtype())
             return msg
         else:
             print("ERROR: Got a bad response:", response.encode())
+
+    def read_hostname(self):
+        res = asyncio.run(self._request("HOSTNAME"))
+        if res is not None:
+            return res
+
+        return "unknown"
 
     def read_odometry(self):
         res = asyncio.run(self._request(self.lcm_config.ODOMETRY.channel))

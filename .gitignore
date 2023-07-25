@@ -17,3 +17,10 @@ __pycache__/
 
 # Logs
 *.log
+
+# C++.
+build/
+
+# NPM
+node_modules/
+dist/

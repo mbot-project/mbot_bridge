@@ -1,3 +1,0 @@
-argparse
-pyyaml
-websockets

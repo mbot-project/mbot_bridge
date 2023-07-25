@@ -6,6 +6,8 @@ class MBotMessageType(object):
     REQUEST = 0
     PUBLISH = 1
     RESPONSE = 2
+    SUBSCRIBE = 3
+    UNSUBSCRIBE = 4
     ERROR = -98
     INVALID = -99
 
@@ -21,6 +23,7 @@ class MBotJSONMessage(object):
         else:
             if rtype not in [MBotMessageType.INIT, MBotMessageType.REQUEST,
                              MBotMessageType.PUBLISH, MBotMessageType.RESPONSE,
+                             MBotMessageType.SUBSCRIBE, MBotMessageType.UNSUBSCRIBE,
                              MBotMessageType.ERROR, MBotMessageType.INVALID]:
                 raise AttributeError(f"Invalid message type: {rtype}")
             self._request_type = rtype
@@ -49,6 +52,10 @@ class MBotJSONMessage(object):
             rtype = "request"
         elif self._request_type == MBotMessageType.RESPONSE:
             rtype = "response"
+        elif self._request_type == MBotMessageType.SUBSCRIBE:
+            rtype = "subscribe"
+        elif self._request_type == MBotMessageType.UNSUBSCRIBE:
+            rtype = "unsubscribe"
         elif self._request_type == MBotMessageType.ERROR:
             rtype = "error"
         else:
@@ -80,27 +87,22 @@ class MBotJSONMessage(object):
             raise BadMBotRequestError("JSON request does not have a type attribute.")
 
         # Parse the type.
-        if request_type == "request":
-            request_type = MBotMessageType.REQUEST
-        elif request_type == "publish":
-            request_type = MBotMessageType.PUBLISH
-        elif request_type == "response":
-            request_type = MBotMessageType.RESPONSE
-        elif request_type == "error":
-            request_type = MBotMessageType.ERROR
-        elif request_type == "init":
-            request_type = MBotMessageType.INIT
-        else:
-            request_type = MBotMessageType.INVALID
+        try:
+            request_type = getattr(MBotMessageType, request_type.upper())
+        except AttributeError:
             raise BadMBotRequestError(f"Invalid request type: \"{request_type}\"")
 
-        # The request should have a channel if it is a publish or a request type.
+        if request_type == MBotMessageType.INVALID:
+            raise BadMBotRequestError(f"Invalid request type: \"{request_type}\"")
+
         channel = None
-        if request_type == MBotMessageType.REQUEST or request_type == MBotMessageType.PUBLISH:
-            try:
-                channel = data["channel"]
-            except KeyError:
-                raise BadMBotRequestError("JSON request does not have a channel attribute.")
+        if "channel" in data:
+            channel = data["channel"]
+
+        # The request should have a channel if it is a publish, subscribe or a request type.
+        if request_type in (MBotMessageType.REQUEST, MBotMessageType.PUBLISH,
+                            MBotMessageType.SUBSCRIBE, MBotMessageType.UNSUBSCRIBE) and channel is None:
+            raise BadMBotRequestError("JSON request does not have a channel attribute.")
 
         # Read the data, if any.
         msg_data, dtype = None, None

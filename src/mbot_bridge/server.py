@@ -59,19 +59,27 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, subs=[], lcm_timeout=1000):
+    def __init__(self, lcm_address, subs=[], lcm_timeout=1000, hostfile="/etc/hostname"):
+        self._hostname = self._read_hostname(hostfile)
+        self._loop = None
+
+        # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
         self._lcm = lcm.LCM(lcm_address)
 
         self._msg_managers = {}
+        self._subs = {}
         for channel in subs:
             ch, lcm_type = channel["channel"], channel["type"]
-            self._msg_managers.update({channel["channel"]: LCMMessageQueue(ch, lcm_type)})
+            self._subs.update({ch: []})
+
+            self._msg_managers.update({ch: LCMMessageQueue(ch, lcm_type)})
             self._lcm.subscribe(ch, self.listener)
 
         self._running = True
         self._lock = threading.Lock()
 
+        logging.info(f"Hostname: {self._hostname}")
         logging.info(f"Connecting to LCM on address: {lcm_address}")
         logging.info("Listening on channels:")
         for ch in subs:
@@ -89,8 +97,38 @@ class MBotBridgeServer(object):
         self._lock.release()
         return res
 
+    def _read_hostname(self, hostfile):
+        if not os.path.exists(hostfile):
+            logging.warning(f"Host file does not exist, hostname will be empty. Host file: {hostfile}")
+            return ""
+
+        # Read the robot's host name.
+        with open(hostfile, 'r') as f:
+            name = f.read()
+
+        return name.strip()
+
+    def _latest_as_msg(self, ch):
+        latest = self._msg_managers[ch].latest()
+        latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
+        # Wrap the response data for sending over the websocket.
+        res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+        return res
+
     def listener(self, channel, data):
         self._msg_managers[channel].push(data, decode=True)
+
+        # If there are subscribers, send them the data.
+        if len(self._subs[channel]) > 0:
+            res = self._latest_as_msg(channel).encode()
+            for ws_sub in self._subs[channel]:
+                try:
+                    self._loop.run_until_complete(ws_sub.send(res))
+                except (websockets.exceptions.ConnectionClosedOK,
+                        websockets.exceptions.ConnectionClosedError):
+                    # If this websocket is closed, remove it.
+                    logging.debug(f"Websocket ID {ws_sub.id} - Disconnected and unsubscribed from {channel}")
+                    self._subs[channel].remove(ws_sub)
 
     def handleOnce(self):
         # This is a non-blocking handle, which only calls handle if a message is ready.
@@ -99,60 +137,82 @@ class MBotBridgeServer(object):
             self._lcm.handle()
 
     def lcm_loop(self):
+        self._loop = asyncio.new_event_loop()
         while self.running():
             # This will block for a maximum of _lcm_timeout milliseconds, so it
             # might slow stopping the server, but it's less expensive than using
             # the non-blocking handleOnce.
             self._lcm.handle_timeout(self._lcm_timeout)
 
-    async def handler(self, websocket):
-        logging.debug(f"Websocket connected with ID: {websocket.id}")
+    def _subscribe(self, ws, channel):
+        self._subs[channel].append(ws)
 
-        # Handle all incoming messages from the websocket.
-        async for message in websocket:
-            logging.debug(f"Message from WS {websocket.id}: {message}")
-            try:
-                request = MBotJSONMessage(message, from_json=True)
-            except BadMBotRequestError as e:
-                # If something went wrong parsing this request, send the error message then continue.
-                msg = f"Bad MBot request. Ignoring. BadMBotRequestError: {e}"
+    def _unsubscribe(self, ws, channel=None):
+        self._subs[channel].remove(ws)
+
+    async def process_msg(self, websocket, message):
+        try:
+            request = MBotJSONMessage(message, from_json=True)
+        except BadMBotRequestError as e:
+            # If something went wrong parsing this request, send the error message then continue.
+            msg = f"Bad MBot request. Ignoring. BadMBotRequestError: {e}"
+            logging.warning(f"{websocket.id} - {msg}")
+            err = MBotJSONError(msg)
+            await websocket.send(err.encode())
+            return
+
+        if request.type() == MBotMessageType.REQUEST:
+            ch = request.channel()
+            if ch == "HOSTNAME":
+                # If hostname, return the hostname as a string.
+                res = MBotJSONResponse(self._hostname, ch, "")
+                await websocket.send(res.encode())
+            elif ch not in self._msg_managers:
+                # If the channel being requested does not exist, return an error.
+                msg = f"Bad MBot request. No channel: {ch}"
                 logging.warning(f"{websocket.id} - {msg}")
                 err = MBotJSONError(msg)
                 await websocket.send(err.encode())
-                continue
+            elif self._msg_managers[ch].empty():
+                msg = f"No data on channel: {ch}"
+                logging.warning(f"{websocket.id} - {msg}")
+                err = MBotJSONError(msg)
+                await websocket.send(err.encode())
+            else:
+                # Get the newest data.
+                res = self._latest_as_msg(ch)
+                await websocket.send(res.encode())
+        elif request.type() == MBotMessageType.PUBLISH:
+            try:
+                # Publish the data sent over the websocket.
+                pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
+                self._lcm.publish(request.channel(), pub_msg.encode())
+            except AttributeError as e:
+                # If the type or data is bad, send back an error message.
+                msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
+                       f"AttributeError: {e}")
+                logging.warning(f"{websocket.id} - {msg}")
+                err = MBotJSONError(msg)
+                await websocket.send(err.encode())
+        elif request.type() == MBotMessageType.SUBSCRIBE:
+            logging.debug(f"Websocket ID {websocket.id} - Subscribed to channel {request.channel()}")
+            self._subscribe(websocket, request.channel())
+        elif request.type() == MBotMessageType.UNSUBSCRIBE:
+            logging.debug(f"Websocket ID {websocket.id} - Unsubscribed from channel {request.channel()}")
+            self._unsubscribe(websocket, request.channel())
 
-            if request.type() == MBotMessageType.REQUEST:
-                ch = request.channel()
-                if ch not in self._msg_managers:
-                    # If the channel being requested does not exist, return an error.
-                    msg = f"Bad MBot request. No channel: {ch}"
-                    logging.warning(f"{websocket.id} - {msg}")
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
-                elif self._msg_managers[ch].empty():
-                    msg = f"No data on channel: {ch}"
-                    logging.warning(f"{websocket.id} - {msg}")
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
-                else:
-                    # Get the newest data.
-                    latest = self._msg_managers[ch].latest()
-                    latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
-                    # Wrap the response data for sending over the websocket.
-                    res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
-                    await websocket.send(res.encode())
-            elif request.type() == MBotMessageType.PUBLISH:
-                try:
-                    # Publish the data sent over the websocket.
-                    pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
-                    self._lcm.publish(request.channel(), pub_msg.encode())
-                except AttributeError as e:
-                    # If the type or data is bad, send back an error message.
-                    msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
-                           f"AttributeError: {e}")
-                    logging.warning(f"{websocket.id} - {msg}")
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
+    async def handler(self, websocket):
+        logging.debug(f"Websocket connected with ID: {websocket.id}")
+
+        try:
+            # Handle all incoming messages from the websocket.
+            async for message in websocket:
+                logging.debug(f"Message from WS {websocket.id}: {message}")
+                await self.process_msg(websocket, message)
+        except websockets.exceptions.ConnectionClosedOK:
+            logging.debug(f"Websocket connection closed: {websocket.id}")
+        except websockets.exceptions.ConnectionClosedError:
+            logging.warning(f"Websocket closed with error: {websocket.id}")
 
 
 async def main(args):
@@ -166,7 +226,7 @@ async def main(args):
     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
 
-    lcm_manager = MBotBridgeServer(config["lcm_address"], config["subs"])
+    lcm_manager = MBotBridgeServer(config["lcm_address"], subs=config["subs"], hostfile=args.host_file)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
@@ -190,6 +250,7 @@ def load_args(conf="config/default.yml"):
     parser.add_argument("--log-file", type=str, default="mbot_bridge_server.log", help="Log file.")
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
+    parser.add_argument("--host-file", type=str, default="/etc/hostname", help="Hostname file.")
 
     args = parser.parse_args()
 
