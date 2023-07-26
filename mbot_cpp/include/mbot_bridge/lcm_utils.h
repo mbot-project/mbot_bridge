@@ -6,6 +6,7 @@
 
 #include <mbot_lcm_msgs/twist2D_t.hpp>
 #include <mbot_lcm_msgs/pose2D_t.hpp>
+#include <mbot_lcm_msgs/lidar_t.hpp>
 
 #include "json_utils.h"
 
@@ -43,30 +44,66 @@ static inline std::string lcmTypeToString(const mbot_lcm_msgs::pose2D_t& data)
 }
 
 
-static inline mbot_lcm_msgs::pose2D_t stringToLCMType(const std::string& data)
+static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::pose2D_t& out)
 {
-    mbot_lcm_msgs::pose2D_t p;
+    // mbot_lcm_msgs::pose2D_t p;
     if (data.find("x") != std::string::npos)
     {
         auto x = strip(fetch(data, "x"));
-        if (x.length() > 0) p.x = std::stof(x);
+        if (x.length() > 0) out.x = std::stof(x);
     }
     if (data.find("y") != std::string::npos)
     {
         auto y = strip(fetch(data, "y"));
-        if (y.length() > 0) p.y = std::stof(y);
+        if (y.length() > 0) out.y = std::stof(y);
     }
     if (data.find("theta") != std::string::npos)
     {
         auto theta = strip(fetch(data, "theta"));
-        if (theta.length() > 0) p.theta = std::stof(theta);
+        if (theta.length() > 0) out.theta = std::stof(theta);
     }
     if (data.find("utime") != std::string::npos)
     {
         auto utime = fetch(data, "utime");
-        if (utime.length() > 0) p.utime = std::stol(utime);
+        if (utime.length() > 0) out.utime = std::stol(utime);
     }
-    return p;
+}
+
+
+static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::lidar_t& out)
+{
+    if (data.find("num_ranges") != std::string::npos)
+    {
+        auto num_ranges = strip(fetch(data, "num_ranges"));
+        if (num_ranges.length() > 0) out.num_ranges = std::stoi(num_ranges);
+    }
+    if (data.find("ranges") != std::string::npos)
+    {
+        auto ranges_raw = strip(fetchList(data, "ranges"));
+        if (ranges_raw.length() > 0)
+        {
+            auto ranges_str = split(ranges_raw, ',');
+            std::vector<float> ranges;
+            for (auto& ele : ranges_str) ranges.push_back(std::stof(ele));
+            out.ranges = ranges;
+        }
+    }
+    if (data.find("thetas") != std::string::npos)
+    {
+        auto thetas_raw = strip(fetchList(data, "thetas"));
+        if (thetas_raw.length() > 0)
+        {
+            auto thetas_str = split(thetas_raw, ',');
+            std::vector<float> thetas;
+            for (auto& ele : thetas_str) thetas.push_back(std::stof(ele));
+            out.thetas = thetas;
+        }
+    }
+    if (data.find("utime") != std::string::npos)
+    {
+        auto utime = fetch(data, "utime");
+        if (utime.length() > 0) out.utime = std::stol(utime);
+    }
 }
 
 

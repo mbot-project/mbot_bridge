@@ -38,9 +38,9 @@ static inline std::vector<std::string> split(const std::string &s, char delim) {
 
 // fetch string
 static inline std::string fetch(const std::string& s, const std::string& keyword) {
-    std::string exp_str = ".*\"" + keyword + "\":\\s*\"(.*?)\"";  // Looks for string data.
-    std::string exp_dict = ".*\"" + keyword + "\":\\s*\\{(.*?)\\}";  // Looks for dictionary data.
-    std::string exp_val = ".*\"" + keyword + "\":\\s*([^,$]+)";  // Looks for raw data.
+    std::string exp_str = "\"" + keyword + "\":\\s*\"([^\"]+)";  // Looks for string data.
+    std::string exp_dict = "\"" + keyword + "\":\\s*\\{([^\\}]+)";  // Looks for dictionary data.
+    std::string exp_val = "\"" + keyword + "\":\\s*([^,$]+)";  // Looks for raw data.
 
     std::smatch sm;
     std::regex e_str(exp_str);
@@ -58,6 +58,69 @@ static inline std::string fetch(const std::string& s, const std::string& keyword
         return match;
     }
     else if (std::regex_search(s, sm, e_val))
+    {
+        auto match = sm[sm.size() - 1];
+        return match;
+    }
+
+    return "";
+}
+
+
+static inline std::string fetchVal(const std::string& s, const std::string& keyword) {
+    std::string exp_val = "\"" + keyword + "\":\\s*([^,$]+)";  // Looks for raw data.
+
+    std::smatch sm;
+    std::regex e_val(exp_val);
+
+    if (std::regex_search(s, sm, e_val))
+    {
+        auto match = sm[sm.size() - 1];
+        return match;
+    }
+
+    return "";
+}
+
+
+static inline std::string fetchString(const std::string& s, const std::string& keyword) {
+    std::string exp_str = "\"" + keyword + "\":\\s*\"([^\"]+)";  // Looks for string data.
+
+    std::smatch sm;
+    std::regex e_str(exp_str);
+
+    if (std::regex_search(s, sm, e_str))
+    {
+        auto match = sm[sm.size() - 1];
+        return match;
+    }
+
+    return "";
+}
+
+static inline std::string fetchDict(const std::string& s, const std::string& keyword) {
+    std::string exp_dict = "\"" + keyword + "\":\\s*\\{([^\\}]+)";  // Looks for dictionary data.
+
+    std::smatch sm;
+    std::regex e_dict(exp_dict);
+
+    if (std::regex_search(s, sm, e_dict))
+    {
+        auto match = sm[sm.size() - 1];
+        return match;
+    }
+
+    return "";
+}
+
+
+static inline std::string fetchList(const std::string& s, const std::string& keyword) {
+    std::string exp_list = "\"" + keyword + "\":\\s*\\[([^\\]]+)";  // Looks for dictionary data.
+
+    std::smatch sm;
+    std::regex e_list(exp_list);
+
+    if (std::regex_search(s, sm, e_list))
     {
         auto match = sm[sm.size() - 1];
         return match;
