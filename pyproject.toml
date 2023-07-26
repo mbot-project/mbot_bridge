@@ -19,7 +19,8 @@ classifiers = [
 dependencies = [
     "argparse",
     "pyyaml",
-	"websockets",
+	  "websockets",
+    "numpy",
 ]
 
 [project.urls]
