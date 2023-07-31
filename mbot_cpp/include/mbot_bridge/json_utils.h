@@ -36,36 +36,6 @@ static inline std::vector<std::string> split(const std::string &s, char delim) {
     return tokens;
 }
 
-// fetch string
-static inline std::string fetch(const std::string& s, const std::string& keyword) {
-    std::string exp_str = "\"" + keyword + "\":\\s*\"([^\"]+)";  // Looks for string data.
-    std::string exp_dict = "\"" + keyword + "\":\\s*\\{([^\\}]+)";  // Looks for dictionary data.
-    std::string exp_val = "\"" + keyword + "\":\\s*([^,$]+)";  // Looks for raw data.
-
-    std::smatch sm;
-    std::regex e_str(exp_str);
-    std::regex e_dict(exp_dict);
-    std::regex e_val(exp_val);
-
-    if (std::regex_search(s, sm, e_str))
-    {
-        auto match = sm[sm.size() - 1];
-        return match;
-    }
-    else if (std::regex_search(s, sm, e_dict))
-    {
-        auto match = sm[sm.size() - 1];
-        return match;
-    }
-    else if (std::regex_search(s, sm, e_val))
-    {
-        auto match = sm[sm.size() - 1];
-        return match;
-    }
-
-    return "";
-}
-
 
 static inline std::string fetchVal(const std::string& s, const std::string& keyword) {
     std::string exp_val = "\"" + keyword + "\":\\s*([^,$]+)";  // Looks for raw data.
@@ -126,6 +96,37 @@ static inline std::string fetchList(const std::string& s, const std::string& key
         return match;
     }
 
+    return "";
+}
+
+// fetch any data
+static inline std::string fetch(const std::string& s, const std::string& keyword) {
+    // Try to find any type of data. This function is not very efficient.
+    std::string str = fetchString(s, keyword);
+    if (str.size() > 0)
+    {
+        return str;
+    }
+
+    std::string dict = fetchDict(s, keyword);
+    if (dict.size() > 0)
+    {
+        return dict;
+    }
+
+    std::string list = fetchList(s, keyword);
+    if (list.size() > 0)
+    {
+        return list;
+    }
+
+    std::string val = fetchVal(s, keyword);
+    if (val.size() > 0)
+    {
+        return val;
+    }
+
+    // By default, return nothing.
     return "";
 }
 
