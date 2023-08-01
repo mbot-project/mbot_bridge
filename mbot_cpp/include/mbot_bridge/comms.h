@@ -7,6 +7,7 @@
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 
+#include "lcm_utils.h"
 #include "mbot_json_msgs.h"
 
 using websocketpp::lib::placeholders::_1;
@@ -96,7 +97,6 @@ private:
 
     void on_open(websocketpp::connection_hdl hdl){
         MBotJSONMessage msg(lcmTypeToString(data_), channel_, dtype_, MBotMessageType::PUBLISH);
-        std::cout << "Connection open! Sending: " << msg.encode() << std::endl;
         c_.send(hdl, msg.encode(), websocketpp::frame::opcode::text);
 
         // Once the message is published, we don't need to wait for a message in response.
