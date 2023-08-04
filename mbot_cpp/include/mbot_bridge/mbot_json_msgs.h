@@ -10,6 +10,7 @@
 
 #include "json_utils.h"
 
+namespace mbot_bridge {
 
 enum MBotMessageType
 {
@@ -142,5 +143,7 @@ private:
         return MBotMessageType::INVALID;
     }
 };
+
+}   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_MBOT_JSON_MSGS_H

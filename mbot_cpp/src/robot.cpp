@@ -5,8 +5,9 @@
 #include <mbot_lcm_msgs/pose2D_t.hpp>
 #include <mbot_lcm_msgs/lidar_t.hpp>
 
+namespace mbot_bridge {
 
-void Robot::drive(const float vx, const float vy, const float wz) const
+void MBot::drive(const float vx, const float vy, const float wz) const
 {
     mbot_lcm_msgs::twist2D_t msg;
     msg.vx = vx;
@@ -17,12 +18,12 @@ void Robot::drive(const float vx, const float vy, const float wz) const
     pub.run();
 }
 
-void Robot::stop() const
+void MBot::stop() const
 {
     drive(0, 0, 0);
 }
 
-void Robot::resetOdometry() const
+void MBot::resetOdometry() const
 {
     mbot_lcm_msgs::pose2D_t msg;
     msg.x = 0;
@@ -33,7 +34,7 @@ void Robot::resetOdometry() const
     pub.run();
 }
 
-void Robot::readLidarScan(std::vector<float>& ranges, std::vector<float>& thetas) const
+void MBot::readLidarScan(std::vector<float>& ranges, std::vector<float>& thetas) const
 {
     // Empty the vectors.
     ranges.clear();
@@ -51,7 +52,7 @@ void Robot::readLidarScan(std::vector<float>& ranges, std::vector<float>& thetas
     }
 }
 
-std::vector<float> Robot::readOdometry() const
+std::vector<float> MBot::readOdometry() const
 {
     MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(ODOMETRY_CHANNEL);
     reader.run();
@@ -67,7 +68,7 @@ std::vector<float> Robot::readOdometry() const
     return odom;
 }
 
-std::vector<float> Robot::readSlamPose() const
+std::vector<float> MBot::readSlamPose() const
 {
     MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(SLAM_POSE_CHANNEL);
     reader.run();
@@ -82,3 +83,5 @@ std::vector<float> Robot::readSlamPose() const
 
     return pose;
 }
+
+}   // namespace mbot_bridge

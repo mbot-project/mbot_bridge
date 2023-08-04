@@ -15,6 +15,7 @@ using websocketpp::lib::placeholders::_2;
 
 typedef websocketpp::client<websocketpp::config::asio_client> WSClient;
 
+namespace mbot_bridge {
 
 class MBotWSCommBase
 {
@@ -163,5 +164,7 @@ private:
         c_.close(hdl, websocketpp::close::status::normal, "");
     }
 };
+
+}   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_WEBSOCKET_H

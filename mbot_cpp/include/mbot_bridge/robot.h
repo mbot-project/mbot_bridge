@@ -12,11 +12,12 @@
 #include "lcm_utils.h"
 #include "comms.h"
 
+namespace mbot_bridge {
 
-class Robot
+class MBot
 {
 public:
-    Robot(const std::string& hostname = "localhost", const int port = 5005)
+    MBot(const std::string& hostname = "localhost", const int port = 5005)
     {
         uri_ = "ws://" + hostname + ":" + std::to_string(port);
     }
@@ -32,5 +33,7 @@ private:
     std::string uri_;
 
 };
+
+}   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_ROBOT_H

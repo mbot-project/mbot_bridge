@@ -3,7 +3,7 @@
 
 int main(int argc, char* argv[])
 {
-    Robot robot;
+    mbot_bridge::MBot robot;
     robot.drive(0, 0, 0);
 
     auto odom = robot.readOdometry();
