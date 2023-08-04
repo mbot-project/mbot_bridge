@@ -49,22 +49,22 @@ static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::pose2
     // mbot_lcm_msgs::pose2D_t p;
     if (data.find("x") != std::string::npos)
     {
-        auto x = strip(fetch(data, "x"));
+        auto x = strip(fetchVal(data, "x"));
         if (x.length() > 0) out.x = std::stof(x);
     }
     if (data.find("y") != std::string::npos)
     {
-        auto y = strip(fetch(data, "y"));
+        auto y = strip(fetchVal(data, "y"));
         if (y.length() > 0) out.y = std::stof(y);
     }
     if (data.find("theta") != std::string::npos)
     {
-        auto theta = strip(fetch(data, "theta"));
+        auto theta = strip(fetchVal(data, "theta"));
         if (theta.length() > 0) out.theta = std::stof(theta);
     }
     if (data.find("utime") != std::string::npos)
     {
-        auto utime = fetch(data, "utime");
+        auto utime = fetchVal(data, "utime");
         if (utime.length() > 0) out.utime = std::stol(utime);
     }
 }
@@ -74,7 +74,7 @@ static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::lidar
 {
     if (data.find("num_ranges") != std::string::npos)
     {
-        auto num_ranges = strip(fetch(data, "num_ranges"));
+        auto num_ranges = strip(fetchVal(data, "num_ranges"));
         if (num_ranges.length() > 0) out.num_ranges = std::stoi(num_ranges);
     }
     if (data.find("ranges") != std::string::npos)
@@ -101,7 +101,7 @@ static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::lidar
     }
     if (data.find("utime") != std::string::npos)
     {
-        auto utime = fetch(data, "utime");
+        auto utime = fetchVal(data, "utime");
         if (utime.length() > 0) out.utime = std::stol(utime);
     }
 }
