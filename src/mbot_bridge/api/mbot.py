@@ -28,6 +28,10 @@ class Robot(object):
     def stop(self):
         self.drive(0, 0, 0)
 
+    def reset_odometry(self):
+        zero = {"x": 0, "y": 0, "theta": 0}
+        asyncio.run(self._send(self.lcm_config.RESET_ODOMETRY.channel, zero, self.lcm_config.RESET_ODOMETRY.dtype))
+
     """SUBSCRIBERS"""
 
     async def _request(self, ch):

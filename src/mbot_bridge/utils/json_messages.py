@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 
 class MBotMessageType(object):
@@ -68,9 +69,19 @@ class MBotJSONMessage(object):
         if self._dtype is not None:
             msg.update({"dtype": self._dtype})
         if self._data is not None:
+            # Special consideration for the lidar data because it's so big.
+            if self._dtype == "lidar_t":
+                # Round to 4 data points.
+                self._data["ranges"] = np.round(self._data["ranges"], 4).tolist()
+                self._data["thetas"] = np.round(self._data["thetas"], 4).tolist()
+
+                # Remove times and intensities which are not used.
+                self._data.pop("intensities", None)
+                self._data.pop("times", None)
+
             msg.update({"data": self._data})
 
-        return json.dumps(msg)
+        return json.dumps(msg).replace(' ', "")  # Remove spaces to make string shorter.
 
     def decode(self, data):
         raw_data = data

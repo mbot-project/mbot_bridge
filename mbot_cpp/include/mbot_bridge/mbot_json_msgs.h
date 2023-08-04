@@ -10,6 +10,7 @@
 
 #include "json_utils.h"
 
+namespace mbot_bridge {
 
 enum MBotMessageType
 {
@@ -78,24 +79,24 @@ public:
             rtype_ = MBotMessageType::INVALID;
             return;
         }
-        rtype_ = stringToType(fetch(raw, "type"));
+        rtype_ = stringToType(fetchString(raw, "type"));
 
         data_ = "";
         if (raw.find("data") != std::string::npos)
         {
-            data_ = fetch(raw, "data");
+            data_ = fetchDict(raw, "data");
         }
 
         channel_ = "";
         if (raw.find("channel") != std::string::npos)
         {
-            channel_ = fetch(raw, "channel");
+            channel_ = fetchString(raw, "channel");
         }
 
         dtype_ = "";
         if (raw.find("dtype") != std::string::npos)
         {
-            dtype_ = fetch(raw, "dtype");
+            dtype_ = fetchString(raw, "dtype");
         }
     }
 
@@ -142,5 +143,7 @@ private:
         return MBotMessageType::INVALID;
     }
 };
+
+}   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_MBOT_JSON_MSGS_H

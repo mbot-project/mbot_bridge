@@ -37,6 +37,7 @@ Then, compile the C++ API:
 ```bash
 cd mbot_bridge
 python setup.py build_ext
+sudo python setup.py install_ext
 ```
 A test script is available at:
 ```bash
