@@ -84,7 +84,7 @@ public:
         data_ = "";
         if (raw.find("data") != std::string::npos)
         {
-            data_ = fetchDict(raw, "data");
+            data_ = fetch(raw, "data");
         }
 
         channel_ = "";

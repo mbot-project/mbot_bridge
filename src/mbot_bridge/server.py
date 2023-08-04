@@ -120,10 +120,10 @@ class MBotBridgeServer(object):
 
         # If there are subscribers, send them the data.
         if len(self._subs[channel]) > 0:
-            res = self._latest_as_msg(channel).encode()
+            res = self._msg_managers[ch].latest()
             for ws_sub in self._subs[channel]:
                 try:
-                    self._loop.run_until_complete(ws_sub.send(res))
+                    self._loop.run_until_complete(ws_sub.send(res.encode()))
                 except (websockets.exceptions.ConnectionClosedOK,
                         websockets.exceptions.ConnectionClosedError):
                     # If this websocket is closed, remove it.
@@ -179,8 +179,8 @@ class MBotBridgeServer(object):
                 err = MBotJSONError(msg)
                 await websocket.send(err.encode())
             else:
-                # Get the newest data.
-                res = self._latest_as_msg(ch)
+                # Get the newest data and send it as bytes.
+                res = self._msg_managers[ch].latest()
                 await websocket.send(res.encode())
         elif request.type() == MBotMessageType.PUBLISH:
             try:

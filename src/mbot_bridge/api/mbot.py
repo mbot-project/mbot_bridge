@@ -1,6 +1,6 @@
 import websockets
 import asyncio
-from mbot_bridge.utils.type_utils import dict_to_lcm_type
+from mbot_bridge.utils import type_utils
 from mbot_bridge.utils.json_messages import (
     MBotJSONRequest, MBotJSONPublish, MBotJSONMessage, MBotMessageType
 )
@@ -34,7 +34,7 @@ class Robot(object):
 
     """SUBSCRIBERS"""
 
-    async def _request(self, ch):
+    async def _request(self, ch, dtype=None):
         res = MBotJSONRequest(ch)
         async with websockets.connect(self.uri) as websocket:
             await websocket.send(res.encode())
@@ -42,6 +42,10 @@ class Robot(object):
             # Wait for the response
             response = await websocket.recv()
 
+        if isinstance(response, bytes):
+            assert dtype is not None, "Must provide data type to process data as bytes."
+            msg = type_utils.decode(response, dtype)
+            return msg
         # Convert this to a JSON message.
         response = MBotJSONMessage(response, from_json=True)
 
@@ -56,7 +60,7 @@ class Robot(object):
                 # Hostname is not an LCM message.
                 return response.data()
 
-            msg = dict_to_lcm_type(response.data(), response.dtype())
+            msg = type_utils.dict_to_lcm_type(response.data(), response.dtype())
             return msg
         else:
             print("ERROR: Got a bad response:", response.encode())
@@ -69,21 +73,24 @@ class Robot(object):
         return "unknown"
 
     def read_odometry(self):
-        res = asyncio.run(self._request(self.lcm_config.ODOMETRY.channel))
+        res = asyncio.run(self._request(self.lcm_config.ODOMETRY.channel,
+                                        self.lcm_config.ODOMETRY.dtype))
         if res is not None:
             return [res.x, res.y, res.theta]
 
         return []
 
     def read_slam_pose(self):
-        res = asyncio.run(self._request(self.lcm_config.SLAM_POSE.channel))
+        res = asyncio.run(self._request(self.lcm_config.SLAM_POSE.channel,
+                                        self.lcm_config.SLAM_POSE.dtype))
         if res is not None:
             return [res.x, res.y, res.theta]
 
         return []
 
     def read_lidar(self):
-        res = asyncio.run(self._request(self.lcm_config.LIDAR.channel))
+        res = asyncio.run(self._request(self.lcm_config.LIDAR.channel,
+                                        self.lcm_config.LIDAR.dtype))
         if res is not None:
             return res.ranges, res.thetas
 

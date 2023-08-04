@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include <chrono>
 
 #include <mbot_lcm_msgs/twist2D_t.hpp>
 #include <mbot_lcm_msgs/pose2D_t.hpp>
@@ -23,6 +24,15 @@
 #define CONTROLLER_PATH_CHANNEL "CONTROLLER_PATH"
 #define CONTROLLER_PATH_TYPE "path2D_t"
 
+
+/**
+ * Gets the current time in microseconds.
+ */
+static inline int getTimeMicro()
+{
+    auto now = std::chrono::system_clock::now();
+    return now.time_since_epoch().count();
+}
 
 static inline std::string lcmTypeToString(const mbot_lcm_msgs::twist2D_t& data)
 {
