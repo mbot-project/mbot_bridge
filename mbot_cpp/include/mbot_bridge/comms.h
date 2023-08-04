@@ -81,11 +81,9 @@ template <class T>
 class MBotBridgePublisher : public MBotWSCommBase
 {
 public:
-    MBotBridgePublisher(const std::string& ch, const T& data, const std::string& dtype,
-                        const std::string& uri = "ws://localhost:5005") :
+    MBotBridgePublisher(const std::string& ch, const T& data, const std::string& uri = "ws://localhost:5005") :
         MBotWSCommBase(uri),
         channel_(ch),
-        dtype_(dtype),
         data_(data)
     {
         // Register the open handler.
@@ -93,11 +91,11 @@ public:
     };
 
 private:
-    std::string channel_, dtype_;
+    std::string channel_;
     T data_;
 
     void on_open(websocketpp::connection_hdl hdl){
-        MBotJSONMessage msg(lcmTypeToString(data_), channel_, dtype_, MBotMessageType::PUBLISH);
+        MBotJSONMessage msg(lcmTypeToString(data_), channel_, data_.getTypeName(), MBotMessageType::PUBLISH);
         c_.send(hdl, msg.encode(), websocketpp::frame::opcode::text);
 
         // Once the message is published, we don't need to wait for a message in response.

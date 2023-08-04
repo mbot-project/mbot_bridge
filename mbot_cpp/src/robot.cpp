@@ -1,9 +1,13 @@
+#include <array>
+#include <vector>
+
 #include <mbot_bridge/comms.h>
 #include <mbot_bridge/robot.h>
 
 #include <mbot_lcm_msgs/twist2D_t.hpp>
 #include <mbot_lcm_msgs/pose2D_t.hpp>
 #include <mbot_lcm_msgs/lidar_t.hpp>
+#include <mbot_lcm_msgs/path2D_t.hpp>
 
 namespace mbot_bridge {
 
@@ -14,7 +18,7 @@ void MBot::drive(const float vx, const float vy, const float wz) const
     msg.vy = vy;
     msg.wz = wz;
 
-    MBotBridgePublisher<mbot_lcm_msgs::twist2D_t> pub(MBOT_VEL_CMD_CHANNEL, msg, MBOT_VEL_CMD_TYPE, uri_);
+    MBotBridgePublisher<mbot_lcm_msgs::twist2D_t> pub(MBOT_VEL_CMD_CHANNEL, msg, uri_);
     pub.run();
 }
 
@@ -30,7 +34,28 @@ void MBot::resetOdometry() const
     msg.y = 0;
     msg.theta = 0;
 
-    MBotBridgePublisher<mbot_lcm_msgs::pose2D_t> pub(ODOMETRY_RESET_CHANNEL, msg, ODOMETRY_RESET_TYPE, uri_);
+    MBotBridgePublisher<mbot_lcm_msgs::pose2D_t> pub(ODOMETRY_RESET_CHANNEL, msg, uri_);
+    pub.run();
+}
+
+void MBot::drivePath(const std::vector<std::array<float, 3> >& path) const
+{
+    if (path.size() <= 1) return;
+
+    mbot_lcm_msgs::path2D_t msg;
+
+    for (auto& pose : path)
+    {
+        mbot_lcm_msgs::pose2D_t pose_msg;
+        pose_msg.x = pose[0];
+        pose_msg.y = pose[1];
+        pose_msg.theta = pose[2];
+        msg.path.push_back(pose_msg);
+    }
+
+    msg.path_length = path.size();
+
+    MBotBridgePublisher<mbot_lcm_msgs::path2D_t> pub(CONTROLLER_PATH_CHANNEL, msg, uri_);
     pub.run();
 }
 
