@@ -171,7 +171,7 @@ private:
             // T lcm_data;
             auto payload = msg->get_payload();
             // TODO: This first thing needs to be a buffer apparently, not just a string?
-            int res = data_.decode(&payload, 0, payload.size());  // if -1 make error
+            int res = data_.decode(payload.c_str(), 0, payload.size());  // if -1 make error
             std::cout << "res " << res << " encoded size " << data_.getEncodedSize() << " payload size " << payload.size() <<std::endl;
             res_type_ = MBotMessageType::RESPONSE;  // Set to response type in the case of binary data.
 
