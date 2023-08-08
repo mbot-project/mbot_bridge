@@ -22,9 +22,13 @@ public:
         uri_ = "ws://" + hostname + ":" + std::to_string(port);
     }
 
+    // Pubs.
     void drive(const float vx, const float vy, const float wz) const;
     void stop() const;
     void resetOdometry() const;
+    void drivePath(const std::vector<std::array<float, 3> >& path) const;
+
+    // Subs.
     void readLidarScan(std::vector<float>& ranges, std::vector<float>& thetas) const;
     std::vector<float> readOdometry() const;
     std::vector<float> readSlamPose() const;

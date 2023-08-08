@@ -8,6 +8,7 @@
 #include <mbot_lcm_msgs/twist2D_t.hpp>
 #include <mbot_lcm_msgs/pose2D_t.hpp>
 #include <mbot_lcm_msgs/lidar_t.hpp>
+#include <mbot_lcm_msgs/path2D_t.hpp>
 
 #include "json_utils.h"
 
@@ -37,6 +38,7 @@ static inline int getTimeMicro()
 static inline std::string lcmTypeToString(const mbot_lcm_msgs::twist2D_t& data)
 {
     std::ostringstream oss;
+    oss << keyValToJSON("utime", data.utime) << ",";
     oss << keyValToJSON("vx", data.vx) << ",";
     oss << keyValToJSON("vy", data.vy) << ",";
     oss << keyValToJSON("wz", data.wz);
@@ -47,9 +49,27 @@ static inline std::string lcmTypeToString(const mbot_lcm_msgs::twist2D_t& data)
 static inline std::string lcmTypeToString(const mbot_lcm_msgs::pose2D_t& data)
 {
     std::ostringstream oss;
+    oss << keyValToJSON("utime", data.utime) << ",";
     oss << keyValToJSON("x", data.x) << ",";
     oss << keyValToJSON("y", data.y) << ",";
     oss << keyValToJSON("theta", data.theta);
+    return oss.str();
+}
+
+
+static inline std::string lcmTypeToString(const mbot_lcm_msgs::path2D_t& data)
+{
+    std::ostringstream oss;
+    oss << keyValToJSON("utime", data.utime) << ",";
+    oss << keyValToJSON("path_length", data.path_length) << ",";
+    // Add the path vector one pose at a time.
+    oss << "\"path\":[";
+    for (size_t i = 0; i < data.path_length - 1; ++i)
+    {
+        oss << "{" << lcmTypeToString(data.path[i]) << "},";
+    }
+    oss << "{" << lcmTypeToString(data.path[data.path_length - 1]) << "}]";
+
     return oss.str();
 }
 
