@@ -2,6 +2,7 @@
 #define MBOT_BRIDGE_LCM_UTILS_H
 
 #include <string>
+#include <chrono>
 #include <sstream>
 
 #include <mbot_lcm_msgs/twist2D_t.hpp>
@@ -56,9 +57,9 @@ static inline std::string lcmTypeToString(const mbot_lcm_msgs::path2D_t& data)
     oss << "\"path\":[";
     for (size_t i = 0; i < data.path_length - 1; ++i)
     {
-        oss << lcmTypeToString(data.path[i]) << ",";
+        oss << "{" << lcmTypeToString(data.path[i]) << "},";
     }
-    oss << lcmTypeToString(data.path[data.path_length - 1]) << "]";
+    oss << "{" << lcmTypeToString(data.path[data.path_length - 1]) << "}]";
 
     return oss.str();
 }
