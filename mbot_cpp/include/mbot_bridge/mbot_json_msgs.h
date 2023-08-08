@@ -57,7 +57,7 @@ public:
         }
         if (data_.length() > 0)
         {
-            oss << "," << keyMapToJSON("data", jsonToMap(data_));
+            oss << "," << "\"data\":{" << data_ << "}";
         }
         oss << "}";  // Close msg.
 

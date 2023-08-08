@@ -214,7 +214,7 @@ static inline std::map<std::string, std::string> jsonToMap(const std::string& in
         auto key_val = split(str, ':');
         if (key_val.size() != 2)
         {
-            std::cout << "Error! " << str << std::endl;
+            std::cout << "[MBot API] ERROR: Can't parse data: " << str << std::endl;
             continue;
         }
 
