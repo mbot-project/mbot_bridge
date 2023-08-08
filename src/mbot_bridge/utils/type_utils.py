@@ -22,6 +22,14 @@ def dict_to_lcm_type(data, dtype):
     lcm_msg = str_to_lcm_type(dtype)()
 
     for k, v in data.items():
+        # If one of the values is a list, we must check for types that need to be converted recursively.
+        if isinstance(v, list):
+            val_dtype = lcm_msg.__typenames__[lcm_msg.__slots__.index(k)]
+            if val_dtype.startswith("mbot_lcm_msgs"):
+                val_dtype = val_dtype.replace("mbot_lcm_msgs.", "")
+                # Recursively convert to the correct data type.
+                v = [dict_to_lcm_type(val, val_dtype) for val in v]
+
         setattr(lcm_msg, k, v)
 
     return lcm_msg
