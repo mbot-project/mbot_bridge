@@ -23,6 +23,12 @@ dependencies = [
     "numpy",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mbot_bridge = ["config/*.yml"]
+
 [project.urls]
 "Homepage" = "https://github.com/MBot-Project-Development/mbot_bridge"
 "Bug Tracker" = "https://github.com/MBot-Project-Development/mbot_bridge/issues"
