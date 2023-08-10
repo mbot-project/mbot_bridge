@@ -6,7 +6,6 @@
 
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
-#include <lcm/lcm-cpp.hpp>
 
 #include "lcm_utils.h"
 #include "mbot_json_msgs.h"
@@ -165,12 +164,9 @@ private:
             }
         } else {
             // Data was returned as binary. Try to decode it as an LCM type.
-            std::cout << "binary " << websocketpp::utility::to_hex(msg->get_payload()) << std::endl;
-            // T lcm_data;
             auto payload = msg->get_payload();
             // TODO: This first thing needs to be a buffer apparently, not just a string?
             int res = data_.decode(payload.c_str(), 0, payload.size());  // if -1 make error
-            std::cout << "res " << res << " encoded size " << data_.getEncodedSize() << " payload size " << payload.size() <<std::endl;
             res_type_ = MBotMessageType::RESPONSE;  // Set to response type in the case of binary data.
 
             if (res < 0) {
