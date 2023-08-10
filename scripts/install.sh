@@ -35,3 +35,19 @@ echo
 echo "Installing the C++ MBot API..."
 echo
 sudo python setup.py install_ext
+
+# Install service.
+echo
+echo "Installing the MBot Bridge service..."
+echo
+# Copy the services.
+sudo cp services/mbot-bridge.service /etc/systemd/system/mbot-bridge.service
+
+# Enable the services.
+sudo systemctl daemon-reload
+sudo systemctl enable mbot-bridge.service
+sudo systemctl restart mbot-bridge.service
+
+echo
+echo "MBot Bridge setup complete."
+echo
