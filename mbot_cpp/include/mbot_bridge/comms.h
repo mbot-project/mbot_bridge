@@ -141,21 +141,35 @@ private:
     }
 
     void on_message(websocketpp::connection_hdl hdl, WSClient::message_ptr msg) {
-        MBotJSONMessage in_msg;
-        in_msg.decode(msg->get_payload());
-        res_type_ = in_msg.type();
+        if (msg->get_opcode() == websocketpp::frame::opcode::text) {
+            // Data was returned as a string. Decode it as a JSON message.
+            MBotJSONMessage in_msg;
+            in_msg.decode(msg->get_payload());
+            res_type_ = in_msg.type();
 
-        if (res_type_ == MBotMessageType::RESPONSE)
-        {
-            stringToLCMType(in_msg.data(), data_);
-        }
-        else if (res_type_ == MBotMessageType::ERROR)
-        {
-            std::cout << "[MBot API] WARNING: Read failed. " << in_msg.data() << std::endl;
-        }
-        else
-        {
-            std::cout << "[MBot API] WARNING: Read failed." << std::endl;
+            if (res_type_ == MBotMessageType::RESPONSE)
+            {
+                stringToLCMType(in_msg.data(), data_);
+            }
+            else if (res_type_ == MBotMessageType::ERROR)
+            {
+                std::cout << "[MBot API] WARNING: Read failed. " << in_msg.data() << std::endl;
+            }
+            else
+            {
+                std::cout << "[MBot API] WARNING: Read failed." << std::endl;
+            }
+        } else {
+            // Data was returned as binary. Try to decode it as an LCM type.
+            auto payload = msg->get_payload();
+            // TODO: This first thing needs to be a buffer apparently, not just a string?
+            int res = data_.decode(payload.c_str(), 0, payload.size());  // if -1 make error
+            res_type_ = MBotMessageType::RESPONSE;  // Set to response type in the case of binary data.
+
+            if (res < 0) {
+                std::cout << "[MBot API] WARNING: Read of binary data failed." << std::endl;
+                failed_ = true;
+            }
         }
 
         // Once we get the message back, we can stop listening.

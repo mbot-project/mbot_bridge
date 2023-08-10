@@ -81,7 +81,7 @@ class MBotJSONMessage(object):
 
             msg.update({"data": self._data})
 
-        return json.dumps(msg).replace(' ', "")  # Remove spaces to make string shorter.
+        return json.dumps(msg)
 
     def decode(self, data):
         raw_data = data
