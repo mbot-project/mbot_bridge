@@ -22,4 +22,8 @@ int main(int argc, char* argv[])
 
     robot.resetOdometry();
 
+    std::vector<std::array<float, 3>> path;
+    path.push_back({1,2,0.3});
+    path.push_back({4,5,0.6});
+    robot.drivePath(path);
 }
