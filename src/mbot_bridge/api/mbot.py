@@ -44,7 +44,12 @@ class Robot(object):
 
         if isinstance(response, bytes):
             assert dtype is not None, "Must provide data type to process data as bytes."
-            msg = type_utils.decode(response, dtype)
+            try:
+                msg = type_utils.decode(response, dtype)
+            except type_utils.BadMessageError as e:
+                print("ERROR:", e)
+                return
+
             return msg
         # Convert this to a JSON message.
         response = MBotJSONMessage(response, from_json=True)
@@ -95,3 +100,7 @@ class Robot(object):
             return res.ranges, res.thetas
 
         return [], []
+
+    def read_data(self, channel, dtype):
+        res = asyncio.run(self._request(channel, dtype))
+        return res

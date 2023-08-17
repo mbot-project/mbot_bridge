@@ -187,7 +187,7 @@ class MBotBridgeServer(object):
                 # Publish the data sent over the websocket.
                 pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
                 self._lcm.publish(request.channel(), pub_msg.encode())
-            except AttributeError as e:
+            except type_utils.BadMessageError as e:
                 # If the type or data is bad, send back an error message.
                 msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
                        f"AttributeError: {e}")
