@@ -2,8 +2,8 @@ import { MBotMessageType, MBotJSONMessage } from "./mbot_json_msgs.js";
 import config from "./lcm_config.js";
 
 
-class Robot {
-  constructor(hostname="localhost", port=5005) {
+class MBot {
+  constructor(hostname = "localhost", port = 5005) {
     this.address = "ws://" + hostname + ":" + port;
     this.ws_subs = {};
   }
@@ -74,7 +74,7 @@ class Robot {
   }
 
   drive(vx, vy, wz) {
-    let data = {"vx": vx, "vy": vy, "wz": wz};
+    let data = { "vx": vx, "vy": vy, "wz": wz };
     this._publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
   }
 
@@ -82,8 +82,7 @@ class Robot {
     let waitForData = this._read(config.ODOMETRY.channel);
     waitForData.then((val) => {
       let odom = [];
-      if (val.rtype === MBotMessageType.RESPONSE)
-      {
+      if (val.rtype === MBotMessageType.RESPONSE) {
         odom = [val.data.x, val.data.y, val.data.theta];
       }
       odomCallback(odom);
@@ -92,4 +91,4 @@ class Robot {
   }
 }
 
-export { Robot };
+export { MBot };

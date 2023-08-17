@@ -13,3 +13,5 @@ pubs:
     type: "twist2d_t"
   - channel: "MBOT_ODOMETRY_RESET"
     type: "pose2D_t"
+  - channel: "CONTROLLER_PATH"
+    type: "path2D_t"
