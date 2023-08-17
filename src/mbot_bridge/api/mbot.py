@@ -7,8 +7,8 @@ from mbot_bridge.utils.json_messages import (
 from .lcm_config import LCMConfig
 
 
-class Robot(object):
-    """Utility class for controlling the robot."""
+class MBot(object):
+    """Utility class for controlling the mbot."""
 
     def __init__(self, host="localhost", port=5005):
         self.uri = f"ws://{host}:{port}"
