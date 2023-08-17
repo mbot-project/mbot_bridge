@@ -7,6 +7,7 @@ import select
 import logging
 import threading
 import websockets
+import time
 
 import lcm
 from mbot_bridge.utils import type_utils
@@ -59,9 +60,10 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, subs=[], lcm_timeout=1000, hostfile="/etc/hostname"):
+    def __init__(self, lcm_address, subs=[], lcm_timeout=1000, hostfile="/etc/hostname", discard_msgs=-1):
         self._hostname = self._read_hostname(hostfile)
         self._loop = None
+        self.discard_msgs = discard_msgs
 
         # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
@@ -78,7 +80,7 @@ class MBotBridgeServer(object):
 
         self._running = True
         self._lock = threading.Lock()
-
+        logging.info(f"Discard msgs seconds: {discard_msgs}")
         logging.info(f"Hostname: {self._hostname}")
         logging.info(f"Connecting to LCM on address: {lcm_address}")
         logging.info("Listening on channels:")
@@ -181,11 +183,20 @@ class MBotBridgeServer(object):
             else:
                 # Get the newest data and send it as bytes.
                 res = self._msg_managers[ch].latest()
-                await websocket.send(res.encode())
+                message_staleness_us = time.time_ns() // 1000 - res.utime
+                if self.discard_msgs > 0 and message_staleness_us > self.discard_msgs * 1E6:
+                    # remove from the queue
+                    msg = f"Data on channel {ch} is old."
+                    self._msg_managers[ch].pop()
+                    err = MBotJSONError(msg)
+                    await websocket.send(err.encode())
+                else:
+                    await websocket.send(res.encode())
         elif request.type() == MBotMessageType.PUBLISH:
             try:
                 # Publish the data sent over the websocket.
                 pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
+                pub_msg.utime = time.time_ns() // 1000
                 self._lcm.publish(request.channel(), pub_msg.encode())
             except AttributeError as e:
                 # If the type or data is bad, send back an error message.
@@ -225,8 +236,7 @@ async def main(args):
     stop = asyncio.Future()
     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
-
-    lcm_manager = MBotBridgeServer(config["lcm_address"], subs=config["subs"], hostfile=args.host_file)
+    lcm_manager = MBotBridgeServer(config["lcm_address"], subs=config["subs"], hostfile=args.host_file, discard_msgs=args.discard_msgs)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
@@ -251,6 +261,7 @@ def load_args(conf="config/default.yml"):
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
     parser.add_argument("--host-file", type=str, default="/etc/hostname", help="Hostname file.")
+    parser.add_argument("--discard-msgs", type=int, default=-1, help="Discard stale msgs after X seconds.")
 
     args = parser.parse_args()
 
