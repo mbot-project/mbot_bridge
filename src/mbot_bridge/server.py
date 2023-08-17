@@ -187,6 +187,7 @@ class MBotBridgeServer(object):
                 if self.discard_msgs > 0 and message_staleness_us > self.discard_msgs * 1E6:
                     # remove from the queue
                     msg = f"Data on channel {ch} is old."
+                    logging.warning(f"Old data on channel: {ch} of staleness {message_staleness_us} us discarded")
                     self._msg_managers[ch].pop()
                     err = MBotJSONError(msg)
                     await websocket.send(err.encode())
