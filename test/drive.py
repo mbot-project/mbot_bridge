@@ -1,30 +1,30 @@
 import time
-from mbot_bridge.api import Robot
+from mbot_bridge.api import MBot
 
-# Initialize a robot object.
-robot = Robot()
+# Initialize a mbot object.
+mbot = MBot()
 
 # Read hostname.
-print("Robot hostname:", robot.read_hostname())
+print("MBot hostname:", mbot.read_hostname())
 
 # Read the latest odometry message.
-odom = robot.read_odometry()
+odom = mbot.read_odometry()
 print("Odometry:", odom)
 
 # Read the latest lidar scan.
-ranges, thetas = robot.read_lidar()
+ranges, thetas = mbot.read_lidar()
 print("Ranges length:", len(ranges), "Thetas length:", len(thetas))
 
 # Drive in a square.
 vel = 0.5
-robot.drive(vel, 0, 0)
+mbot.drive(vel, 0, 0)
 time.sleep(1)
-robot.drive(0, vel, 0)
+mbot.drive(0, vel, 0)
 time.sleep(1)
-robot.drive(-vel, 0, 0)
+mbot.drive(-vel, 0, 0)
 time.sleep(1)
-robot.drive(0, -vel, 0)
+mbot.drive(0, -vel, 0)
 time.sleep(1)
 
 # Make sure motors are stopped.
-robot.stop()
+mbot.stop()

@@ -1,6 +1,6 @@
 # MBot Bridge
 
-Server and API to bridge robot functionality with student code.
+Server and API to bridge mbot functionality with student code.
 
 Dependencies:
 * Python 3 (tested on 3.10)
@@ -52,11 +52,11 @@ cd mbot_js
 npm install
 npm run build
 ```
-Then include the bundled script `mbot_js/dist/main.js` where you want to use the API. To create a robot object, do:
+Then include the bundled script `mbot_js/dist/main.js` where you want to use the API. To create a MBot object, do:
 ```javascript
-const robot = new MBotAPI.Robot(robotIP);
+const mbot = new MBotAPI.MBot(mbotIP);
 ```
-where `robotIP` is the IP address of the robot.
+where `mbotIP` is the IP address of the mbot.
 
 ### Usage
 

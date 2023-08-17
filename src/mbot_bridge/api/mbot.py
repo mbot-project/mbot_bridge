@@ -7,8 +7,8 @@ from mbot_bridge.utils.json_messages import (
 from .lcm_config import LCMConfig
 
 
-class Robot(object):
-    """Utility class for controlling the robot."""
+class MBot(object):
+    """Utility class for controlling the mbot."""
 
     def __init__(self, host="localhost", port=5005):
         self.uri = f"ws://{host}:{port}"
@@ -32,6 +32,9 @@ class Robot(object):
         zero = {"x": 0, "y": 0, "theta": 0}
         asyncio.run(self._send(self.lcm_config.RESET_ODOMETRY.channel, zero, self.lcm_config.RESET_ODOMETRY.dtype))
 
+    def drive_path(self, path):
+        asyncio.run(self._send(self.lcm_config.CONTROLLER_PATH.channel, path, self.lcm_config.CONTROLLER_PATH.dtype))
+         
     """SUBSCRIBERS"""
 
     async def _request(self, ch, dtype=None):

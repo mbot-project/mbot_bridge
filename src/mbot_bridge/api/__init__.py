@@ -1,1 +1,1 @@
-from .mbot import Robot
+from .mbot import MBot
