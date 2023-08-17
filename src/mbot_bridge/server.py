@@ -262,7 +262,7 @@ def load_args(conf="config/default.yml"):
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
     parser.add_argument("--host-file", type=str, default="/etc/hostname", help="Hostname file.")
-    parser.add_argument("--discard-msgs", type=int, default=-1, help="Discard stale msgs after X seconds.")
+    parser.add_argument("--discard-msgs", type=float, default=-1, help="Discard stale msgs after X seconds.")
 
     args = parser.parse_args()
 
