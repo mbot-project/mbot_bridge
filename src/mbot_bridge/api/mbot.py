@@ -10,16 +10,21 @@ from .lcm_config import LCMConfig
 class MBot(object):
     """Utility class for controlling the mbot."""
 
-    def __init__(self, host="localhost", port=5005):
+    def __init__(self, host="localhost", port=5005, connect_timeout=5):
         self.uri = f"ws://{host}:{port}"
+        self.connect_timeout = connect_timeout
         self.lcm_config = LCMConfig()
 
     """PUBLISHERS"""
 
     async def _send(self, ch, data, dtype):
         res = MBotJSONPublish(data, ch, dtype)
-        async with websockets.connect(self.uri) as websocket:
-            await websocket.send(res.encode())
+        try:
+            async with websockets.connect(self.uri, open_timeout=self.connect_timeout) as websocket:
+                await websocket.send(res.encode())
+        except asyncio.exceptions.TimeoutError:
+            print(f"[MBot API] ERROR: Cannot connect to MBot Bridge at: {self.uri}")
+            return
 
     def drive(self, vx, vy, wz):
         data = {"vx": vx, "vy": vy, "wz": wz}
@@ -34,27 +39,36 @@ class MBot(object):
 
     def drive_path(self, path):
         asyncio.run(self._send(self.lcm_config.CONTROLLER_PATH.channel, path, self.lcm_config.CONTROLLER_PATH.dtype))
-         
+
     """SUBSCRIBERS"""
 
     async def _request(self, ch, dtype=None):
         res = MBotJSONRequest(ch)
-        async with websockets.connect(self.uri) as websocket:
-            await websocket.send(res.encode())
+        try:
+            async with websockets.connect(self.uri, open_timeout=self.connect_timeout) as websocket:
+                await websocket.send(res.encode())
 
-            # Wait for the response
-            response = await websocket.recv()
+                # Wait for the response
+                response = await websocket.recv()
+        except asyncio.exceptions.TimeoutError:
+            print(f"[MBot API] ERROR: Cannot connect to MBot Bridge at: {self.uri}")
+            return
 
         if isinstance(response, bytes):
             assert dtype is not None, "Must provide data type to process data as bytes."
-            msg = type_utils.decode(response, dtype)
+            try:
+                msg = type_utils.decode(response, dtype)
+            except type_utils.BadMessageError as e:
+                print("[MBot API] ERROR:", e)
+                return
+
             return msg
         # Convert this to a JSON message.
         response = MBotJSONMessage(response, from_json=True)
 
         # Check if this is an error. If so, print it and quit.
         if response.type() == MBotMessageType.ERROR:
-            print("ERROR:", response.data())
+            print("[MBot API] ERROR:", response.data())
             return
 
         # If this was a response as expected, convert it to an LCM message and return.
@@ -66,7 +80,7 @@ class MBot(object):
             msg = type_utils.dict_to_lcm_type(response.data(), response.dtype())
             return msg
         else:
-            print("ERROR: Got a bad response:", response.encode())
+            print("[MBot API] ERROR: Got a bad response:", response.encode())
 
     def read_hostname(self):
         res = asyncio.run(self._request("HOSTNAME"))
@@ -98,3 +112,7 @@ class MBot(object):
             return res.ranges, res.thetas
 
         return [], []
+
+    def read_data(self, channel, dtype):
+        res = asyncio.run(self._request(channel, dtype))
+        return res

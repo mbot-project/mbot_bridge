@@ -199,7 +199,7 @@ class MBotBridgeServer(object):
                 pub_msg = type_utils.dict_to_lcm_type(request.data(), request.dtype())
                 pub_msg.utime = time.time_ns() // 1000
                 self._lcm.publish(request.channel(), pub_msg.encode())
-            except AttributeError as e:
+            except type_utils.BadMessageError as e:
                 # If the type or data is bad, send back an error message.
                 msg = (f"Bad MBot publish. Bad message type ({request.dtype()}) or data (\"{request.data()}\"). "
                        f"AttributeError: {e}")
