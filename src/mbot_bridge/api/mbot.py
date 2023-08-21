@@ -38,7 +38,9 @@ class MBot(object):
         asyncio.run(self._send(self.lcm_config.RESET_ODOMETRY.channel, zero, self.lcm_config.RESET_ODOMETRY.dtype))
 
     def drive_path(self, path):
-        asyncio.run(self._send(self.lcm_config.CONTROLLER_PATH.channel, path, self.lcm_config.CONTROLLER_PATH.dtype))
+        path_data = [{"x": p[0], "y": p[1], "theta": p[2] if len(p) == 3 else 0} for p in path]
+        data = {"path_length": len(path), "path": path_data}
+        asyncio.run(self._send(self.lcm_config.CONTROLLER_PATH.channel, data, self.lcm_config.CONTROLLER_PATH.dtype))
 
     """SUBSCRIBERS"""
 
