@@ -65,7 +65,7 @@ void MBot::readLidarScan(std::vector<float>& ranges, std::vector<float>& thetas)
     ranges.clear();
     thetas.clear();
 
-    MBotBridgeReader<mbot_lcm_msgs::lidar_t> reader(LIDAR_CHANNEL);
+    MBotBridgeReader<mbot_lcm_msgs::lidar_t> reader(LIDAR_CHANNEL, uri_);
     reader.run();
 
     // Only populate the lidar vectors if the read was successful.
@@ -79,7 +79,7 @@ void MBot::readLidarScan(std::vector<float>& ranges, std::vector<float>& thetas)
 
 std::vector<float> MBot::readOdometry() const
 {
-    MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(ODOMETRY_CHANNEL);
+    MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(ODOMETRY_CHANNEL, uri_);
     reader.run();
 
     std::vector<float> odom;
@@ -95,7 +95,7 @@ std::vector<float> MBot::readOdometry() const
 
 std::vector<float> MBot::readSlamPose() const
 {
-    MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(SLAM_POSE_CHANNEL);
+    MBotBridgeReader<mbot_lcm_msgs::pose2D_t> reader(SLAM_POSE_CHANNEL, uri_);
     reader.run();
 
     std::vector<float> pose;
