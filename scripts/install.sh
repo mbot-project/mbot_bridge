@@ -29,12 +29,12 @@ rm -rf websocketpp-0.8.2/
 echo
 echo "Building the C++ MBot API..."
 echo
-python setup.py build_ext
+python3 setup.py build_ext
 
 echo
 echo "Installing the C++ MBot API..."
 echo
-sudo python setup.py install_ext
+sudo python3 setup.py install_ext
 
 # Install service.
 echo
