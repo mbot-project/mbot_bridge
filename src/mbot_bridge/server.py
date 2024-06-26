@@ -60,32 +60,43 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, subs=[], lcm_timeout=1000, hostfile="/etc/hostname", discard_msgs=-1):
+    def __init__(self, lcm_address, subs, ignore_channels=[],
+                 lcm_type_modules=["mbot_lcm_msgs"], lcm_timeout=1000,
+                 hostfile="/etc/hostname", discard_msgs=-1):
         self._hostname = self._read_hostname(hostfile)
         self._loop = None
+        self.lcm_type_modules = lcm_type_modules
         self.discard_msgs = discard_msgs
 
         # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
         self._lcm = lcm.LCM(lcm_address)
 
+        logging.info(f"Hostname: {self._hostname}")
+        logging.info(f"Connecting to LCM on address: {lcm_address}")
+
         self._msg_managers = {}
         self._subs = {}
-        for channel in subs:
-            ch, lcm_type = channel["channel"], channel["type"]
-            self._subs.update({ch: []})
+        self._ignore_channels = ignore_channels
 
-            self._msg_managers.update({ch: LCMMessageQueue(ch, lcm_type)})
-            self._lcm.subscribe(ch, self.listener)
+        if isinstance(subs, list):
+            # The user has provided a list of channels to subscribe to, so only subscribe to these.
+            logging.info("Listening to only provided channels.")
+            for channel in subs:
+                ch, lcm_type = channel["channel"], channel["type"]
+                self._init_channel(ch, lcm_type=lcm_type)
+                self._lcm.subscribe(ch, self.listener)
+        elif subs == 'all':
+            # Listen to all the available channels.
+            logging.info("Listening to all published channels.")
+            self._lcm.subscribe(".*", self.listener)
+        else:
+            logging.error(f"Cannot interpret subs configuration: {subs}")
+            raise Exception("Bad arguments provided")
 
         self._running = True
         self._lock = threading.Lock()
-        logging.info(f"Discard msgs seconds: {discard_msgs}")
-        logging.info(f"Hostname: {self._hostname}")
-        logging.info(f"Connecting to LCM on address: {lcm_address}")
-        logging.info("Listening on channels:")
-        for ch in subs:
-            logging.info(f"    {ch['channel']} ({ch['type']})")
+
         logging.info("MBot Bridge Server running!")
 
     def stop(self, *args):
@@ -117,12 +128,49 @@ class MBotBridgeServer(object):
         res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
         return res
 
+    def _init_channel(self, channel, lcm_type=None, data=None):
+        # If we already have this channel, return success.
+        if channel in self._subs.keys():
+            return True
+
+        # If we are ignoring this channel, return and don't add it.
+        if channel in self._ignore_channels:
+            return False
+
+        # If the user did not specify a channel, try to find it.
+        if lcm_type is None:
+            if data is None:
+                logging.warn(f"Can't initialize channel without either the type or data: {channel}")
+                return False
+
+            try:
+                lcm_type = type_utils.find_lcm_type(data, self.lcm_type_modules)
+            except type_utils.BadMessageError as e:
+                logging.warn(f"Can't find a valid message type for channel: {channel}. Ignoring in future.")
+                self._ignore_channels.append(channel)
+                return False
+
+        # Add this channel to the message queue.
+        logging.info(f"Listening on channel: {channel} ({lcm_type})")
+        self._subs.update({channel: []})
+        self._msg_managers.update({channel: LCMMessageQueue(channel, lcm_type)})
+        return True
+
     def listener(self, channel, data):
+        # Ignore any data on an ignore channel.
+        if channel in self._ignore_channels:
+            return
+
+        if channel not in self._subs.keys():
+            # If we have never seen this channel before, try to initialize it. If it fails, ignore.
+            if not self._init_channel(channel, data=data):
+                return
+
         self._msg_managers[channel].push(data, decode=True)
 
         # If there are subscribers, send them the data.
         if len(self._subs[channel]) > 0:
-            res = self._msg_managers[ch].latest()
+            res = self._msg_managers[channel].latest()
             for ws_sub in self._subs[channel]:
                 try:
                     self._loop.run_until_complete(ws_sub.send(res.encode()))
@@ -164,35 +212,8 @@ class MBotBridgeServer(object):
             return
 
         if request.type() == MBotMessageType.REQUEST:
-            ch = request.channel()
-            if ch == "HOSTNAME":
-                # If hostname, return the hostname as a string.
-                res = MBotJSONResponse(self._hostname, ch, "")
-                await websocket.send(res.encode())
-            elif ch not in self._msg_managers:
-                # If the channel being requested does not exist, return an error.
-                msg = f"Bad MBot request. No channel: {ch}"
-                logging.warning(f"{websocket.id} - {msg}")
-                err = MBotJSONError(msg)
-                await websocket.send(err.encode())
-            elif self._msg_managers[ch].empty():
-                msg = f"No data on channel: {ch}"
-                logging.warning(f"{websocket.id} - {msg}")
-                err = MBotJSONError(msg)
-                await websocket.send(err.encode())
-            else:
-                # Get the newest data and send it as bytes.
-                res = self._msg_managers[ch].latest()
-                message_staleness_us = time.time_ns() // 1000 - res.utime
-                if self.discard_msgs > 0 and message_staleness_us > self.discard_msgs * 1E6:
-                    # remove from the queue
-                    msg = f"Data on channel {ch} is old."
-                    logging.warning(f"Old data on channel: {ch} of staleness {message_staleness_us} us discarded")
-                    self._msg_managers[ch].pop()
-                    err = MBotJSONError(msg)
-                    await websocket.send(err.encode())
-                else:
-                    await websocket.send(res.encode())
+            res = self.handle_request(request, websocket.id)
+            await websocket.send(res.encode())
         elif request.type() == MBotMessageType.PUBLISH:
             try:
                 # Publish the data sent over the websocket.
@@ -213,6 +234,37 @@ class MBotBridgeServer(object):
             logging.debug(f"Websocket ID {websocket.id} - Unsubscribed from channel {request.channel()}")
             self._unsubscribe(websocket, request.channel())
 
+    def handle_request(self, request, ws_id):
+        ch = request.channel()
+        if ch == "HOSTNAME":
+            # If hostname, return the hostname as a string.
+            res = MBotJSONResponse(self._hostname, ch, "")
+            return res
+        elif ch not in self._msg_managers:
+            # If the channel being requested does not exist, return an error.
+            msg = f"Bad MBot request. No channel: {ch}"
+            logging.warning(f"{ws_id} - {msg}")
+            err = MBotJSONError(msg)
+            return err
+        elif self._msg_managers[ch].empty():
+            msg = f"No data on channel: {ch}"
+            logging.warning(f"{ws_id} - {msg}")
+            err = MBotJSONError(msg)
+            return err
+        else:
+            # Get the newest data and send it as bytes.
+            res = self._msg_managers[ch].latest()
+            message_staleness_us = time.time_ns() // 1000 - res.utime
+            if self.discard_msgs > 0 and message_staleness_us > self.discard_msgs * 1E6:
+                # Remove from the queue
+                msg = f"Data on channel {ch} is old."
+                logging.warning(f"Old data on channel: {ch} of staleness {message_staleness_us} us discarded")
+                self._msg_managers[ch].pop()
+                err = MBotJSONError(msg)
+                return err
+            else:
+                return res
+
     async def handler(self, websocket):
         logging.debug(f"Websocket connected with ID: {websocket.id}")
 
@@ -228,16 +280,15 @@ class MBotBridgeServer(object):
 
 
 async def main(args):
-    logging.info(f"Reading configuration from: {args.config}")
-    with open(args.config, 'r') as f:
-        config = yaml.load(f, Loader=yaml.Loader)
-
     # Set the stop condition when receiving SIGTERM or SIGINT.
     loop = asyncio.get_running_loop()
     stop = asyncio.Future()
     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
-    lcm_manager = MBotBridgeServer(config["lcm_address"], subs=config["subs"], hostfile=args.host_file, discard_msgs=args.discard_msgs)
+    lcm_manager = MBotBridgeServer(args.lcm_address, subs=args.subs,
+                                   ignore_channels=args.ignore_channels,
+                                   lcm_type_modules=args.lcm_type_modules,
+                                   hostfile=args.host_file, discard_msgs=args.discard_msgs)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
@@ -275,9 +326,47 @@ def load_args(conf="config/default.yml"):
     return args
 
 
+def load_config(args):
+    # Read the configuration file.
+    logging.info(f"Reading configuration from: {args.config}")
+    with open(args.config, 'r') as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+
+    # Extract data from the config file.
+    args.lcm_address = config["lcm_address"]
+    subs = config["subs"]
+    # Confirm subs where either a list or equal to "all".
+    if subs != "all" and not isinstance(subs, list):
+        logging.error(f"Config parameter \'subs\' must be either a list of channel data or the string \'all\'. " +
+                      f"Got: {subs} (type: {type(subs)})")
+        raise Exception("Bad config file")
+
+    args.subs = subs
+
+    args.ignore_channels = config["ignore_channels"] if "ignore_channels" in config.keys() else []
+    lcm_type_modules = config["lcm_type_modules"] if "lcm_type_modules" in config.keys() else ["mbot_lcm_msgs"]
+
+    # Confirm that the LCM modules are loadable.
+    good_type_modules = []
+    for pkg in lcm_type_modules:
+        try:
+            importlib.import_module(pkg)
+            good_type_modules.append(pkg)
+        except ModuleNotFoundError as e:
+            logging.warning(f"No LCM type module named: \'{pkg}\'. Ignoring.")
+    if len(good_type_modules) < 1:
+        # If there are no valid types, add the default.
+        logging.warning("No valid LCM type modules provided. Using default: \'mbot_lcm_msgs\'")
+        good_type_modules = ["mbot_lcm_msgs"]
+    args.lcm_type_modules = good_type_modules
+
+    return args
+
+
 if __name__ == "__main__":
     import os
     import argparse
+    import importlib
     from . import config
     from logging import handlers
 
@@ -296,5 +385,12 @@ if __name__ == "__main__":
                         datefmt='%m/%d/%Y %I:%M:%S %p')
     # Websocket messages are too noisy, make sure they aren't higher than warning.
     logging.getLogger("websockets").setLevel(logging.WARNING)
+
+    load_config(args)
+
+    # Log all the arguments before running.
+    logging.info("Starting the MBot Bridge with arguments:")
+    for arg in vars(args):
+        logging.info(f"\t{arg}: {getattr(args, arg)}")
 
     asyncio.run(main(args))
