@@ -58,6 +58,11 @@ class LCMMessageQueue(object):
     def empty(self):
         return len(self._queue) == 0
 
+    def header(self):
+        return {"channel": self.channel,
+                "dtype": self.dtype,
+                "queue_size": self.queue_size}
+
 
 class MBotBridgeServer(object):
     def __init__(self, lcm_address, subs, ignore_channels=[],
@@ -239,6 +244,11 @@ class MBotBridgeServer(object):
         if ch == "HOSTNAME":
             # If hostname, return the hostname as a string.
             res = MBotJSONResponse(self._hostname, ch, "")
+            return res
+        elif ch == "CHANNELS":
+            # If channels, return the list of current subscriptions.
+            subs = [v.header() for _, v in self._msg_managers.items()]
+            res = MBotJSONResponse(subs, ch, "")
             return res
         elif ch not in self._msg_managers:
             # If the channel being requested does not exist, return an error.
