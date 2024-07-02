@@ -73,6 +73,38 @@ class MBot {
     this.ws_subs[ch] = null;
   }
 
+  async readHostname(cb) {
+    // Reads the hostname.
+    let waitForData = this._read("HOSTNAME");
+    waitForData.then((val) => {
+      let hostname = "";
+      if (val.rtype === MBotMessageType.RESPONSE) {
+        hostname = val.data;
+      }
+      else {
+        console.warn("Bad response:", val);
+      }
+      cb(hostname);
+    });
+    await waitForData;
+  }
+
+  async readChannels(cb) {
+    // Gets the list of all channels subscribed to.
+    let waitForData = this._read("CHANNELS");
+    waitForData.then((val) => {
+      let channels = [];
+      if (val.rtype === MBotMessageType.RESPONSE) {
+        channels = val.data;
+      }
+      else {
+        console.warn("Bad response:", val);
+      }
+      cb(channels);
+    });
+    await waitForData;
+  }
+
   drive(vx, vy, wz) {
     let data = { "vx": vx, "vy": vy, "wz": wz };
     this._publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
