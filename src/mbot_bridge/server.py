@@ -26,11 +26,7 @@ class LCMMessageQueue(object):
         self._queue = []
         self._lock = threading.Lock()
 
-    def push(self, msg, decode=True):
-        # Decode to LCM type.
-        if decode:
-            msg = type_utils.decode(msg, self.dtype)
-
+    def push(self, msg):
         self._lock.acquire()
         # Add the current message to the back of the queue.
         self._queue.append(msg)
@@ -39,20 +35,39 @@ class LCMMessageQueue(object):
             self._queue.pop(0)
         self._lock.release()
 
-    def latest(self):
+    def latest(self, decode=True):
         latest = None
         self._lock.acquire()
         if len(self._queue) > 0:
             latest = self._queue[-1]
         self._lock.release()
+
+        # Decode to LCM type if requested.
+        if decode:
+            latest = type_utils.decode(latest, self.dtype)
+
         return latest
 
-    def pop(self):
+    def latest_utime(self):
+        latest = None
+        self._lock.acquire()
+        if len(self._queue) > 0:
+            latest = self._queue[-1]
+        self._lock.release()
+        latest = type_utils.decode(latest, self.dtype)
+        return latest.utime
+
+    def pop(self, decode=False):
         first = None
         self._lock.acquire()
         if len(self._queue) > 0:
             first = self._queue.pop(0)
         self._lock.release()
+
+        # Decode to LCM type if requested.
+        if decode:
+            first = type_utils.decode(first, self.dtype)
+
         return first
 
     def empty(self):
@@ -126,9 +141,10 @@ class MBotBridgeServer(object):
 
         return name.strip()
 
-    def _latest_as_msg(self, ch):
-        latest = self._msg_managers[ch].latest()
-        latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary.
+    def _latest_as_msg(self, ch, decode=True):
+        latest = self._msg_managers[ch].latest(decode)
+        if decode:
+            latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary, only message is decoded.
         # Wrap the response data for sending over the websocket.
         res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
         return res
@@ -171,7 +187,7 @@ class MBotBridgeServer(object):
             if not self._init_channel(channel, data=data):
                 return
 
-        self._msg_managers[channel].push(data, decode=True)
+        self._msg_managers[channel].push(data)
 
         # If there are subscribers, send them the data.
         if len(self._subs[channel]) > 0:
@@ -218,7 +234,10 @@ class MBotBridgeServer(object):
 
         if request.type() == MBotMessageType.REQUEST:
             res = self.handle_request(request, websocket.id)
-            await websocket.send(res.encode())
+            if not isinstance(res, bytes):
+                # If the result is in bytes, skip the encoding and send it directly.
+                res = res.encode()
+            await websocket.send(res)
         elif request.type() == MBotMessageType.PUBLISH:
             try:
                 # Publish the data sent over the websocket.
@@ -263,17 +282,23 @@ class MBotBridgeServer(object):
             return err
         else:
             # Get the newest data and send it as bytes.
-            res = self._msg_managers[ch].latest()
-            message_staleness_us = time.time_ns() // 1000 - res.utime
-            if self.discard_msgs > 0 and message_staleness_us > self.discard_msgs * 1E6:
-                # Remove from the queue
-                msg = f"Data on channel {ch} is old."
-                logging.warning(f"Old data on channel: {ch} of staleness {message_staleness_us} us discarded")
-                self._msg_managers[ch].pop()
-                err = MBotJSONError(msg)
-                return err
+            if request.as_bytes():
+                # This msg should be returned as raw bytes.
+                res = self._msg_managers[ch].latest(decode=False)
             else:
-                return res
+                res = self._latest_as_msg(ch, decode=True)
+
+            if self.discard_msgs > 0:
+                message_staleness_us = time.time_ns() // 1000 - self._msg_managers[ch].latest_utime()
+                if message_staleness_us > self.discard_msgs * 1E6:
+                    # Remove from the queue
+                    msg = f"Data on channel {ch} is old."
+                    logging.warning(f"Old data on channel: {ch} of staleness {message_staleness_us} us discarded")
+                    self._msg_managers[ch].pop()
+                    err = MBotJSONError(msg)
+                    return err
+
+            return res
 
     async def handler(self, websocket):
         logging.debug(f"Websocket connected with ID: {websocket.id}")
