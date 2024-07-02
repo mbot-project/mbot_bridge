@@ -65,3 +65,11 @@ To test the JS API, a test script is available in the `test` directory. To use i
 python -m http.server
 ```
 Then navigate to `http://[HOST_IP]:8000` in a browser. If running locally, use the IP `localhost`.
+
+## MBot Bridge Protocol
+
+The MBot Bridge server sends and receives JSON messages over websocket. It is primarily intended for *synchronous* data reading, e.g. to read the latest sensor measurement.
+
+**Note:** If you are writing an application where timing is critical or where it is important to never miss a message (e.g. SLAM or a low-level controller), you should use LCM to subscribe to messages directly.
+
+*Documentation coming soon*
