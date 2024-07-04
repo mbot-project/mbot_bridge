@@ -52,25 +52,62 @@ class MBot {
 
   subscribe(ch, cb) {
     let msg = new MBotJSONMessage(null, ch, null, MBotMessageType.SUBSCRIBE);
-    const websocket = new WebSocket(this.address);
-    this.ws_subs[ch] = websocket;
+    if (this.ws_subs[ch]) {
+      return Promise.resolve();
+    }
 
-    websocket.onopen = (event) => {
-      websocket.send(msg.encode());
-    };
+    let promise = new Promise((resolve, reject) => {
+      this.ws_subs[ch] = new WebSocket(this.address);
 
-    websocket.onmessage = (event) => {
-      cb(event.data);
-    };
+      this.ws_subs[ch].onopen = (event) => {
+        this.ws_subs[ch].send(msg.encode());
+        resolve();
+      };
+
+      this.ws_subs[ch].onmessage = (event) => {
+        let res = new MBotJSONMessage();
+        res.decode(event.data);
+        cb(res);
+      };
+
+      this.ws_subs[ch].onerror = (error) => {
+        console.error('WebSocket error:', error);
+        this.isConnecting = false;
+        this.ws_subs[ch] = null;
+        reject(error);
+      };
+
+      this.ws_subs[ch].onclose = () => {
+        console.log('WebSocket connection closed');
+        this.ws_subs[ch] = null;
+      };
+    });
+
+    return promise;
   }
 
   unsubscribe(ch) {
-    if (this.ws_subs[ch] === undefined || this.ws_subs[ch] === null) return;
+    if (this.ws_subs[ch] === undefined || this.ws_subs[ch] === null) return Promise.resolve();
 
-    let msg = new MBotJSONMessage(null, ch, null, MBotMessageType.UNSUBSCRIBE);
-    this.ws_subs[ch].send(msg.encode());
-    this.ws_subs[ch].close();
-    this.ws_subs[ch] = null;
+    if (this.ws_subs[ch].readyState === WebSocket.CONNECTING) {
+      return Promise.reject(new Error('Cannot unsubscribe while connecting'));
+    }
+
+    return new Promise((resolve) => {
+      if (this.ws_subs[ch].readyState === WebSocket.OPEN) {
+        this.ws_subs[ch].onclose = () => {
+          console.log('WebSocket connection closed');
+          this.ws_subs[ch] = null;
+          resolve();
+        };
+
+        this.ws_subs[ch].close();
+      }
+      else {
+        this.ws_subs[ch] = null;
+        resolve();
+      }
+    });
   }
 
   async readHostname(cb) {
