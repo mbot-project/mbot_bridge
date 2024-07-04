@@ -119,10 +119,16 @@ class MBotBridgeServer(object):
 
         logging.info("MBot Bridge Server running!")
 
-    def stop(self, *args):
+    async def stop(self, *args):
         self._lock.acquire()
         self._running = False
         self._lock.release()
+
+        # Stop any websockets that might still be there.
+        for _, connections in self._subs.items():
+            for ws in connections:
+                if ws.open:
+                    await ws.close()
 
     def running(self):
         self._lock.acquire()
@@ -151,7 +157,7 @@ class MBotBridgeServer(object):
 
     def _init_channel(self, channel, lcm_type=None, data=None):
         # If we already have this channel, return success.
-        if channel in self._subs.keys():
+        if channel in self._msg_managers.keys():
             return True
 
         # If we are ignoring this channel, return and don't add it.
@@ -182,7 +188,7 @@ class MBotBridgeServer(object):
         if channel in self._ignore_channels:
             return
 
-        if channel not in self._subs.keys():
+        if channel not in self._msg_managers.keys():
             # If we have never seen this channel before, try to initialize it. If it fails, ignore.
             if not self._init_channel(channel, data=data):
                 return
@@ -191,8 +197,13 @@ class MBotBridgeServer(object):
 
         # If there are subscribers, send them the data.
         if len(self._subs[channel]) > 0:
-            res = self._msg_managers[channel].latest()
+            # res = self._msg_managers[channel].latest(decode=True)
+            res = self._latest_as_msg(channel, decode=True)
             for ws_sub in self._subs[channel]:
+                if not ws_sub.open:
+                    self._subs[channel].remove(ws_sub)
+                    continue
+
                 try:
                     self._loop.run_until_complete(ws_sub.send(res.encode()))
                 except (websockets.exceptions.ConnectionClosedOK,
@@ -218,7 +229,8 @@ class MBotBridgeServer(object):
     def _subscribe(self, ws, channel):
         self._subs[channel].append(ws)
 
-    def _unsubscribe(self, ws, channel=None):
+    async def _unsubscribe(self, ws, channel=None):
+        await ws.close()
         self._subs[channel].remove(ws)
 
     async def process_msg(self, websocket, message):
@@ -256,7 +268,7 @@ class MBotBridgeServer(object):
             self._subscribe(websocket, request.channel())
         elif request.type() == MBotMessageType.UNSUBSCRIBE:
             logging.debug(f"Websocket ID {websocket.id} - Unsubscribed from channel {request.channel()}")
-            self._unsubscribe(websocket, request.channel())
+            await self._unsubscribe(websocket, request.channel())
 
     def handle_request(self, request, ws_id):
         ch = request.channel()
@@ -310,8 +322,8 @@ class MBotBridgeServer(object):
                 await self.process_msg(websocket, message)
         except websockets.exceptions.ConnectionClosedOK:
             logging.debug(f"Websocket connection closed: {websocket.id}")
-        except websockets.exceptions.ConnectionClosedError:
-            logging.warning(f"Websocket closed with error: {websocket.id}")
+        except websockets.exceptions.ConnectionClosedError as e:
+            logging.warning(f"Websocket ID {websocket.id} - Closed with error: {e}")
 
 
 async def main(args):
@@ -335,7 +347,7 @@ async def main(args):
         reuse_port=True,
     ):
         await stop
-        lcm_manager.stop()
+        await lcm_manager.stop()
 
     logging.info("MBot Bridge exited cleanly.")
 
