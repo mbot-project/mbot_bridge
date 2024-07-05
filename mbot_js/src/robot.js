@@ -25,19 +25,21 @@ class MBot {
 
         // Check for error from the server.
         if (res.rtype === MBotMessageType.ERROR) {
-          console.warn("MBot API Error:", res.data);
+          reject("MBot API Error: " + res.data + " on channel: " + ch);
         }
         else if (res.rtype !== MBotMessageType.RESPONSE) {
           // Check if an unknown error occured.
-          console.warn("MBot API Error: Can't parse response:", res);
+          reject("MBot API Error: Can't parse response on channel: " + ch);
         }
-
         resolve(res);
+      };
+
+      websocket.onerror = (event) => {
+        reject("MBot API Error: MBot Bridge Server connection error.");
       };
     });
 
     return promise;
-
   }
 
   _publish(data, ch, dtype) {
@@ -47,6 +49,10 @@ class MBot {
     websocket.onopen = (event) => {
       websocket.send(msg.encode());
       websocket.close();
+    };
+
+    websocket.onerror = (event) => {
+      console.error("MBot API Error: MBot Bridge Server connection error.");
     };
   }
 
@@ -71,14 +77,11 @@ class MBot {
       };
 
       this.ws_subs[ch].onerror = (error) => {
-        console.error('WebSocket error:', error);
-        this.isConnecting = false;
         this.ws_subs[ch] = null;
-        reject(error);
+        reject("MBot API Error: Cannot subscribe to channel "+ channel);
       };
 
       this.ws_subs[ch].onclose = () => {
-        console.log('WebSocket connection closed');
         this.ws_subs[ch] = null;
       };
     });
@@ -87,6 +90,7 @@ class MBot {
   }
 
   unsubscribe(ch) {
+    // No subscription exists so no action is needed.
     if (this.ws_subs[ch] === undefined || this.ws_subs[ch] === null) return Promise.resolve();
 
     if (this.ws_subs[ch].readyState === WebSocket.CONNECTING) {
@@ -96,7 +100,6 @@ class MBot {
     return new Promise((resolve) => {
       if (this.ws_subs[ch].readyState === WebSocket.OPEN) {
         this.ws_subs[ch].onclose = () => {
-          console.log('WebSocket connection closed');
           this.ws_subs[ch] = null;
           resolve();
         };
@@ -110,36 +113,29 @@ class MBot {
     });
   }
 
-  async readHostname(cb) {
-    // Reads the hostname.
-    let waitForData = this._read("HOSTNAME");
-    waitForData.then((val) => {
-      let hostname = "";
-      if (val.rtype === MBotMessageType.RESPONSE) {
-        hostname = val.data;
-      }
-      else {
-        console.warn("Bad response:", val);
-      }
-      cb(hostname);
+  readHostname() {
+    let promise = new Promise((resolve, reject) => {
+      this._read("HOSTNAME").then((val) => {
+        resolve(val.data)
+      }).catch((error) => {
+        reject(error)
+      });
     });
-    await waitForData;
+
+    return promise;
   }
 
-  async readChannels(cb) {
+  readChannels() {
     // Gets the list of all channels subscribed to.
-    let waitForData = this._read("CHANNELS");
-    waitForData.then((val) => {
-      let channels = [];
-      if (val.rtype === MBotMessageType.RESPONSE) {
-        channels = val.data;
-      }
-      else {
-        console.warn("Bad response:", val);
-      }
-      cb(channels);
+    let promise = new Promise((resolve, reject) => {
+      this._read("CHANNELS").then((val) => {
+        resolve(val.data)
+      }).catch((error) => {
+        reject(error)
+      });
     });
-    await waitForData;
+
+    return promise;
   }
 
   drive(vx, vy, wz) {
