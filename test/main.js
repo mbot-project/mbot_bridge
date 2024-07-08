@@ -2,8 +2,8 @@ window.addEventListener("DOMContentLoaded", () => {
   console.log("Hello!");
   const mbotIP = window.location.host.split(":")[0]  // Grab the IP from which this page was accessed.
   const mbot = new MBotAPI.MBot(mbotIP);
-  mbot.readHostname((hostname) => { console.log("hostname:", hostname); });
-  mbot.readChannels((chs) => { console.log("chs:", chs); });
+  mbot.readHostname().then((hostname) => { console.log("hostname:", hostname); });
+  mbot.readChannels().then((chs) => { console.log("chs:", chs); });
 
   mbot.drive(0, 0, 0);
   mbot.readOdometry((odom) => { console.log("Odom:", odom); });
