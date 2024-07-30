@@ -4,7 +4,7 @@ set -e  # Quit on error.
 # Python installation.
 echo "Installing the Python MBot Bridge code..."
 echo
-sudo pip install .
+sudo python3 setup.py install
 
 # Websockets C++ dependency installation.
 echo
