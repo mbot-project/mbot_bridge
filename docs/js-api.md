@@ -59,6 +59,25 @@ where `mbotIP` is the IP address of the mbot.
 
 ## Usage
 
-The Javascript API is based off of [*promises*](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise), which are objects built for handling asynchronous tasks.
+For the full list of available functions, see [robot.js](../mbot_js/src/robot.js). For example usage, see [main.js](../test/main.js).
 
-*Coming soon*
+The Javascript API is based off of [*promises*](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise), which are objects built for handling asynchronous tasks. Except for publishing, all the functions in the `MBot` class use promises. There are two ways to use this:
+
+### Using Promises
+
+You can use the `.then()` and `.catch()` promise attributes. When the promise returns (e.g. when the MBot Bridge server returns the requested data), the function passed to `.then()` will be called with the returned data as the argument. If an error is raised and the promise rejects, the function passed to `.catch()` will be called with the error message. For example, to read the hostname:
+```javascript
+mbot.readHostname().then((hostname) => { console.log("hostname:", hostname); });
+```
+The hostname will be printed once the data is received, which resolves the promise. This does not block the code execution. In this example, we are not catching errors.
+
+### Using `async` / `await`
+You can also use the `async` / `await` syntax, which is essentially a wrapper for promises. For this, you need to be in an `async` function. To read the hostname this way:
+```javascript
+async function readHostname(mbot) {
+    const host = await mbot.readHostname();
+    console.log("Async hostname:", host);
+}
+```
+
+These do the same thing. In general, unless you are already using `async` / `await` in your code, use the promise syntax.
