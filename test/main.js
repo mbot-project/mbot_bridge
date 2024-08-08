@@ -6,16 +6,16 @@ window.addEventListener("DOMContentLoaded", () => {
   mbot.readChannels().then((chs) => { console.log("chs:", chs); });
 
   mbot.drive(0, 0, 0);
-  mbot.readOdometry((odom) => { console.log("Odom:", odom); });
+  mbot.readOdometry().then((odom) => { console.log("Odom:", odom); });
 
   let sub = false;
   document.getElementById('subscribeButton').addEventListener('click', function () {
     if (!sub) {
-      mbot.subscribe(config.ODOMETRY.channel, (odom) => { console.log("SUB:", odom); });
+      mbot.subscribe(MBotAPI.config.ODOMETRY.channel, (odom) => { console.log("SUB:", odom); });
       sub = true;
     }
     else {
-      mbot.unsubscribe(config.ODOMETRY.channel);
+      mbot.unsubscribe(MBotAPI.config.ODOMETRY.channel);
       sub = false;
     }
   });

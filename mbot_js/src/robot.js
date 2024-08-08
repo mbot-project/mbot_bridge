@@ -143,17 +143,18 @@ class MBot {
     this._publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
   }
 
-  async readOdometry(odomCallback) {
-    let waitForData = this._read(config.ODOMETRY.channel);
-    waitForData.then((val) => {
-      let odom = [];
-      if (val.rtype === MBotMessageType.RESPONSE) {
-        odom = [val.data.x, val.data.y, val.data.theta];
-      }
-      odomCallback(odom);
+  readOdometry() {
+    let promise = new Promise((resolve, reject) => {
+      this._read(config.ODOMETRY.channel).then((val) => {
+        const odom = [val.data.x, val.data.y, val.data.theta];
+        resolve(odom)
+      }).catch((error) => {
+        reject(error)
+      });
     });
-    await waitForData;
+
+    return promise;
   }
 }
 
-export { MBot };
+export { MBot, config };

@@ -66,4 +66,4 @@ To test the JS API, a test script is available in the `test` directory. To use i
 ```bash
 python -m http.server
 ```
-Then navigate to `http://[HOST_IP]:8000` in a browser. If running locally, use the IP `localhost`.
+Then navigate to `http://[HOST_IP]:8000/test` in a browser. If running locally, use the IP `localhost`.
