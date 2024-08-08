@@ -1,14 +1,31 @@
 import { MBotMessageType, MBotJSONMessage } from "./mbot_json_msgs.js";
 import config from "./lcm_config.js";
 
+/**
+ * MBot class provides methods to interact with the MBot Bridge Server via WebSocket.
+ * It supports publishing messages, subscribing to channels, and reading data from channels.
+ */
 
 class MBot {
+  /**
+   * Constructs an instance of the MBot class.
+   *
+   * @param {string} [hostname="localhost"] - The hostname of the MBot Bridge Server.
+   * @param {number} [port=5005] - The port of the MBot Bridge Server.
+   */
   constructor(hostname = "localhost", port = 5005) {
     this.address = "ws://" + hostname + ":" + port;
     this.ws_subs = {};
   }
 
-  async _read(ch) {
+  /**
+   * Private method to send a data request to a specified channel and receive the response.
+   *
+   * @param {string} ch - The channel to read data from.
+   * @returns {Promise} - A Promise that resolves with the received data or rejects if there is an error.
+   * @private
+   */
+  _read(ch) {
     let msg = new MBotJSONMessage(null, ch, null, MBotMessageType.REQUEST);
 
     let promise = new Promise((resolve, reject) => {
@@ -42,7 +59,14 @@ class MBot {
     return promise;
   }
 
-  _publish(data, ch, dtype) {
+  /**
+   * Publishes data to a specified channel.
+   *
+   * @param {string} data - The data to be published. Must be JSON-encodable.
+   * @param {string} ch - The channel to publish the data to.
+   * @param {string} dtype - The data type of the published data.
+   */
+  publish(data, ch, dtype) {
     let msg = new MBotJSONMessage(data, ch, dtype, MBotMessageType.PUBLISH);
     const websocket = new WebSocket(this.address);
 
@@ -56,6 +80,15 @@ class MBot {
     };
   }
 
+  /**
+   * Subscribes to a specified channel and binds a callback function to handle incoming messages.
+   *
+   * @param {string} ch - The channel to subscribe to.
+   * @param {function} cb - The callback function to handle incoming messages from the specified channel.
+   * @returns {Promise} - A Promise that resolves when the connection to the MBot Bridge is successfully opened and the
+   *                      subscription message is sent. It rejects if there is an error in establishing the connection
+   *                      or sending the subscription message.
+   */
   subscribe(ch, cb) {
     let msg = new MBotJSONMessage(null, ch, null, MBotMessageType.SUBSCRIBE);
     if (this.ws_subs[ch]) {
@@ -89,6 +122,13 @@ class MBot {
     return promise;
   }
 
+  /**
+   * Unsubscribes from a specified channel.
+   *
+   * @param {string} ch - The channel to unsubscribe from.
+   * @returns {Promise} - A Promise that resolves when the connection to the given channel is closed or immediately if
+   *                      no subscription exists. It rejects if trying to unsubscribe while connecting.
+   */
   unsubscribe(ch) {
     // No subscription exists so no action is needed.
     if (this.ws_subs[ch] === undefined || this.ws_subs[ch] === null) return Promise.resolve();
@@ -113,36 +153,51 @@ class MBot {
     });
   }
 
+  /*******************
+   * READING HELPERS *
+   *******************/
+
+  /**
+   * Reads the latest data from a specified channel.
+   *
+   * @param {string} ch - The channel to read data from.
+   * @returns {Promise<*>} - A Promise that resolves with the latest data from the specified channel.
+   */
+  readData(ch) {
+    let promise = new Promise((resolve, reject) => {
+      this._read(ch).then((val) => {
+        resolve(val.data);
+      }).catch((error) => {
+        reject(error);
+      });
+    });
+
+    return promise;
+  }
+
+  /**
+   * Reads the robot's hostname.
+   *
+   * @returns {Promise<string>} - A Promise that resolves with the robot's hostname.
+   */
   readHostname() {
-    let promise = new Promise((resolve, reject) => {
-      this._read("HOSTNAME").then((val) => {
-        resolve(val.data)
-      }).catch((error) => {
-        reject(error)
-      });
-    });
-
-    return promise;
+    return this.readData("HOSTNAME");
   }
 
+  /**
+   * Gets the list of all channels subscribed to.
+   *
+   * @returns {Promise<array>} - A Promise that resolves with an array of all subscribed channels.
+   */
   readChannels() {
-    // Gets the list of all channels subscribed to.
-    let promise = new Promise((resolve, reject) => {
-      this._read("CHANNELS").then((val) => {
-        resolve(val.data)
-      }).catch((error) => {
-        reject(error)
-      });
-    });
-
-    return promise;
+    return this.readData("CHANNELS");
   }
 
-  drive(vx, vy, wz) {
-    let data = { "vx": vx, "vy": vy, "wz": wz };
-    this._publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
-  }
-
+  /**
+   * Reads the robot's odometry data.
+   *
+   * @returns {Promise<array>} - A Promise that resolves with an array [x, y, theta] representing the odometry data.
+   */
   readOdometry() {
     let promise = new Promise((resolve, reject) => {
       this._read(config.ODOMETRY.channel).then((val) => {
@@ -154,6 +209,22 @@ class MBot {
     });
 
     return promise;
+  }
+
+  /*******************
+   * PUBLISH HELPERS *
+   *******************/
+
+  /**
+   * Sends drive commands to the robot.
+   *
+   * @param {number} vx - The linear velocity in the x direction.
+   * @param {number} vy - The linear velocity in the y direction.
+   * @param {number} wz - The angular velocity around the z axis.
+   */
+  drive(vx, vy, wz) {
+    let data = { "vx": vx, "vy": vy, "wz": wz };
+    this.publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
   }
 }
 
