@@ -57,7 +57,18 @@ def decode(data, dtype):
 
 def lcm_type_to_dict(data):
     """LCM types, once decoded"""
-    data_d = {att: getattr(data, att) for att in data.__slots__}
+    data_d = {}
+    for att, type_name in zip(data.__slots__, data.__typenames__):
+        val = getattr(data, att)
+        if "." in type_name:
+            # This is an LCM type. Decode it first.
+            if isinstance(val, list):
+                # This is a list of types.
+                val = [lcm_type_to_dict(v) for v in val]
+
+            else:
+                val = lcm_type_to_dict(val)
+        data_d.update({att: val})
     return data_d
 
 
