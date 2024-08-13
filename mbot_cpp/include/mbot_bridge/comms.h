@@ -108,9 +108,12 @@ template <class T>
 class MBotBridgeReader : public MBotWSCommBase
 {
 public:
-    MBotBridgeReader(const std::string& ch, const std::string& uri = "ws://localhost:5005") :
+    MBotBridgeReader(const std::string& ch,
+                     const std::string& uri = "ws://localhost:5005",
+                     const bool as_bytes = true) :
         MBotWSCommBase(uri),
-        channel_(ch)
+        channel_(ch),
+        as_bytes_(as_bytes)
     {
         // Register the open handler.
         c_.set_open_handler(websocketpp::lib::bind(&MBotBridgeReader::on_open, this, ::_1));
@@ -132,11 +135,12 @@ public:
 private:
     std::string channel_;
     MBotMessageType res_type_;  // Response type, to check for errors.
+    bool as_bytes_;             // Whether to request the data as raw bytes.
     T data_;
 
     void on_open(websocketpp::connection_hdl hdl){
         // Request the data.
-        MBotJSONMessage msg("", channel_, "", MBotMessageType::REQUEST);
+        MBotJSONMessage msg("", channel_, "", MBotMessageType::REQUEST, as_bytes_);
         c_.send(hdl, msg.encode(), websocketpp::frame::opcode::text);
     }
 
