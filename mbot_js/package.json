@@ -2,6 +2,7 @@
   "name": "mbot-js-api",
   "version": "0.0.1",
   "description": "A Javascript API for the MBot",
+  "main": "/src/robot.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack"

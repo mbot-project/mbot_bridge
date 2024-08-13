@@ -18,6 +18,34 @@ def str_to_lcm_type(dtype):
     return getattr(mbot_lcm_msgs, dtype)
 
 
+def find_lcm_type(data, pkgs):
+    """Tries to determine the LCM message type of the given data in the list of
+    packages given.
+
+    Args:
+        data: Raw LCM message data to attempt to decode.
+        pkgs: List of strings containing the names of message packages to
+        search in. These must be installed as Python packages in the current
+        environment.
+    """
+    for pkg_name in pkgs:
+        pkg_module = importlib.import_module(pkg_name)
+        for attr in dir(pkg_module):
+            lcm_type_class = getattr(pkg_module, attr)
+            if isinstance(lcm_type_class, type) and hasattr(lcm_type_class, 'decode'):
+                lcm_type = lcm_type_class.__name__
+                try:
+                    # Try to decode the message with this type.
+                    lcm_type_class.decode(data)
+                    # If the decode succeeds, return this as the type.
+                    return lcm_type
+                except ValueError as e:
+                    # If the decode fails, it throws a ValueError and we know this is the wrong type.
+                    continue
+
+    raise BadMessageError(f"Could not parse message type in packages: {[p for p in pkgs]}")
+
+
 def decode(data, dtype):
     """Decode raw data from LCM channel to type based on type string."""
     try:
@@ -29,7 +57,18 @@ def decode(data, dtype):
 
 def lcm_type_to_dict(data):
     """LCM types, once decoded"""
-    data_d = {att: getattr(data, att) for att in data.__slots__}
+    data_d = {}
+    for att, type_name in zip(data.__slots__, data.__typenames__):
+        val = getattr(data, att)
+        if "." in type_name:
+            # This is an LCM type. Decode it first.
+            if isinstance(val, list):
+                # This is a list of types.
+                val = [lcm_type_to_dict(v) for v in val]
+
+            else:
+                val = lcm_type_to_dict(val)
+        data_d.update({att: val})
     return data_d
 
 

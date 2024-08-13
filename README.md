@@ -1,11 +1,13 @@
 # MBot Bridge
 
-Server and API to bridge mbot functionality with student code.
+Server and API to bridge MBot functionality with student code.
 
 Dependencies:
 * Python 3 (tested on 3.10)
 * LCM 1.4+ (tested on 1.5)
-* MBot messages for Python
+* [MBot messages](https://github.com/mbot-project/mbot_lcm_base) for Python and C++
+
+See the [Documentation](docs/index.md) for more details.
 
 ## Install Instructions
 
@@ -64,4 +66,4 @@ To test the JS API, a test script is available in the `test` directory. To use i
 ```bash
 python -m http.server
 ```
-Then navigate to `http://[HOST_IP]:8000` in a browser. If running locally, use the IP `localhost`.
+Then navigate to `http://[HOST_IP]:8000/test` in a browser. If running locally, use the IP `localhost`.

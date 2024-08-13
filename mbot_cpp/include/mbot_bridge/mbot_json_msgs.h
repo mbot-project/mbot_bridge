@@ -30,14 +30,18 @@ public:
         data_(""),
         channel_(""),
         dtype_(""),
-        rtype_(MBotMessageType::INVALID)
+        rtype_(MBotMessageType::INVALID),
+        as_bytes_(false)
     {};
 
-    MBotJSONMessage(const std::string& data, const std::string& ch, const std::string& dtype, const MBotMessageType& rtype) :
+    MBotJSONMessage(const std::string& data, const std::string& ch,
+                    const std::string& dtype, const MBotMessageType& rtype,
+                    const bool as_bytes = false) :
         data_(data),
         channel_(ch),
         dtype_(dtype),
-        rtype_(rtype)
+        rtype_(rtype),
+        as_bytes_(as_bytes)
     {};
 
     std::string encode() const
@@ -58,6 +62,11 @@ public:
         if (data_.length() > 0)
         {
             oss << "," << "\"data\":{" << data_ << "}";
+        }
+        if (rtype_ == MBotMessageType::REQUEST)
+        {
+            // If we are requesting data, include whether or not it should be in byte form.
+            oss << "," << keyValToJSON("as_bytes", as_bytes_);
         }
         oss << "}";  // Close msg.
 
@@ -110,6 +119,7 @@ private:
     std::string channel_;
     std::string dtype_;
     MBotMessageType rtype_;
+    bool as_bytes_;
 
     std::string typeToString(const MBotMessageType& t) const
     {

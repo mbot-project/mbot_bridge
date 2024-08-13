@@ -44,8 +44,8 @@ class MBot(object):
 
     """SUBSCRIBERS"""
 
-    async def _request(self, ch, dtype=None):
-        res = MBotJSONRequest(ch)
+    async def _request(self, ch, dtype=None, as_bytes=False):
+        res = MBotJSONRequest(ch, dtype=dtype, as_bytes=as_bytes)
         try:
             async with websockets.connect(self.uri, open_timeout=self.connect_timeout) as websocket:
                 await websocket.send(res.encode())
@@ -78,8 +78,11 @@ class MBot(object):
             if ch == "HOSTNAME":
                 # Hostname is not an LCM message.
                 return response.data()
+            try:
+                msg = type_utils.dict_to_lcm_type(response.data(), response.dtype())
+            except type_utils.BadMessageError as e:
+                print("[MBot API] ERROR:", e)
 
-            msg = type_utils.dict_to_lcm_type(response.data(), response.dtype())
             return msg
         else:
             print("[MBot API] ERROR: Got a bad response:", response.encode())
@@ -93,7 +96,8 @@ class MBot(object):
 
     def read_odometry(self):
         res = asyncio.run(self._request(self.lcm_config.ODOMETRY.channel,
-                                        self.lcm_config.ODOMETRY.dtype))
+                                        self.lcm_config.ODOMETRY.dtype,
+                                        as_bytes=True))
         if res is not None:
             return [res.x, res.y, res.theta]
 
@@ -101,7 +105,8 @@ class MBot(object):
 
     def read_slam_pose(self):
         res = asyncio.run(self._request(self.lcm_config.SLAM_POSE.channel,
-                                        self.lcm_config.SLAM_POSE.dtype))
+                                        self.lcm_config.SLAM_POSE.dtype,
+                                        as_bytes=True))
         if res is not None:
             return [res.x, res.y, res.theta]
 
@@ -109,12 +114,13 @@ class MBot(object):
 
     def read_lidar(self):
         res = asyncio.run(self._request(self.lcm_config.LIDAR.channel,
-                                        self.lcm_config.LIDAR.dtype))
+                                        self.lcm_config.LIDAR.dtype,
+                                        as_bytes=True))
         if res is not None:
             return res.ranges, res.thetas
 
         return [], []
 
     def read_data(self, channel, dtype):
-        res = asyncio.run(self._request(channel, dtype))
+        res = asyncio.run(self._request(channel, dtype, as_bytes=True))
         return res
