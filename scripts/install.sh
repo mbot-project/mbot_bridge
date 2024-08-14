@@ -5,7 +5,7 @@ set -e  # Quit on error.
 echo "Installing the Python MBot Bridge code..."
 echo
 # Warning: Debian does not like you to globally install Python packages. Only do this on an MBot.
-sudo python -m pip install . --break-system-packages
+sudo python3 -m pip install . --break-system-packages
 
 # Websockets C++ dependency installation.
 echo
