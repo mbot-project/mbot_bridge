@@ -11,11 +11,19 @@ See the [Documentation](docs/index.md) for more details.
 
 ## Install Instructions
 
+To install the MBot Bridge, the API, and all the related services, do:
 ```bash
-pip install -e .
+./scripts/install.sh
 ```
 
+**Warning:** This globally installs the MBot Bridge API and its Python and C++ dependencies. Only do this on an MBot. In general, it's recommended to install Python packages in virtual environments instead.
+
 ## Usage
+
+For development, it is best to use a virtual environment. From your virtual environment, do:
+```bash
+python -m pip install -e .
+```
 
 To run the server, do:
 ```bash
@@ -38,8 +46,14 @@ sudo make install
 Then, compile the C++ API:
 ```bash
 cd mbot_bridge
-python setup.py build_ext
-sudo python setup.py install_ext
+mkdir build
+cd build
+cmake ../mbot_cpp/
+make
+```
+To install the C++ API globally, do:
+```bash
+sudo make install
 ```
 A test script is available at:
 ```bash

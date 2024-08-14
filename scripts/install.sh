@@ -4,7 +4,8 @@ set -e  # Quit on error.
 # Python installation.
 echo "Installing the Python MBot Bridge code..."
 echo
-sudo python3 setup.py install
+# Warning: Debian does not like you to globally install Python packages. Only do this on an MBot.
+sudo python -m pip install . --break-system-packages
 
 # Websockets C++ dependency installation.
 echo
@@ -29,12 +30,19 @@ rm -rf websocketpp-0.8.2/
 echo
 echo "Building the C++ MBot API..."
 echo
-python3 setup.py build_ext
+
+if [ ! -d "build/" ]; then
+    mkdir build
+fi
+cd build
+cmake ../mbot_cpp/
+make
 
 echo
 echo "Installing the C++ MBot API..."
 echo
-sudo python3 setup.py install_ext
+sudo make install
+cd ..
 
 # Install service.
 echo
