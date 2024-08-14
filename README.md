@@ -31,6 +31,12 @@ python -m mbot_bridge.server [--config [PATH/TO/CONFIG]]
 ```
 The `--config` argument is optional and will default to `src/mbot_bridge/config/default.yml`.
 
+**Import errors in your virtual environment?** If you get import errors (e.g. for NumPy and LCM) set your `PYTHONPATH` variable to tell your Python interpreter to check the global path for libraries:
+```bash
+export PYTHONPATH=$PYTHONPATH:/usr/lib/python3/dist-packages/:/usr/local/lib/python3.11/dist-packages/
+```
+Make sure you replace `python3.11` with your installed Python version.
+
 ## C++ API
 
 To use the C++ API, first install the websocket library at the latest release version:
