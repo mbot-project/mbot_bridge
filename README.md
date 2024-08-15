@@ -31,11 +31,15 @@ python -m mbot_bridge.server [--config [PATH/TO/CONFIG]]
 ```
 The `--config` argument is optional and will default to `src/mbot_bridge/config/default.yml`.
 
-**Import errors in your virtual environment?** If you get import errors (e.g. for NumPy and LCM) set your `PYTHONPATH` variable to tell your Python interpreter to check the global path for libraries:
+**Import errors in your virtual environment?** If you get import errors (e.g. for NumPy and LCM) you need to share the system packages with the virtual environment. If you are using `venv`, you can do this with:
 ```bash
-export PYTHONPATH=$PYTHONPATH:/usr/lib/python3/dist-packages/:/usr/local/lib/python3.11/dist-packages/
+python3 -m venv --system-site-packages ~/.envs/my-mbot-env
 ```
-Make sure you replace `python3.11` with your installed Python version.
+Alternatively, set your `PYTHONPATH` variable to tell your Python interpreter to check the global path for libraries:
+```bash
+export PYTHONPATH=$PYTHONPATH:/usr/lib/python3/dist-packages/:/usr/local/lib/python3.X/dist-packages/
+```
+Make sure you replace `python3.X` with your installed Python version.
 
 ## C++ API
 
