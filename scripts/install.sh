@@ -1,10 +1,39 @@
 #!/bin/bash
 set -e  # Quit on error.
 
+# Make the build folder first. Otherwise, it gets made with the sudo command below and will be owned by the root user.
+if [ ! -d "build/" ]; then
+    mkdir build
+fi
+
 # Python installation.
 echo "Installing the Python MBot Bridge code..."
 echo
-sudo python3 setup.py install
+
+# Install the dependencies globally first with apt to minimize the number of packages installed with pip.
+sudo apt install -y python3-yaml \
+	                python3-websockets \
+                    python3-numpy
+
+# Get the distribution ID.
+distro_id=$(grep ^ID= /etc/os-release | cut -d '=' -f 2 | tr -d '"')
+
+# Warning: As of Debian 12 (bookworm) a warning prevents you from globally installing Python packages with pip,
+# as per PEP 668. We're doing it anyway since we want mbot_bridge globally installed. Only do this on an MBot.
+if [ "$distro_id" = "debian" ] || [ "$distro_id" = "raspbian" ]; then
+    # Get the Debian version number
+    debian_version=$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2)
+    if [ "$debian_version" -ge "12" ]; then
+        echo
+        echo "Debian 12 or above detected. Globally installing mbot_bridge, ignoring warnings."
+        echo
+        sudo python3 -m pip install . --break-system-packages
+    else
+        sudo python3 -m pip install .
+    fi
+else
+    sudo python3 -m pip install .
+fi
 
 # Websockets C++ dependency installation.
 echo
@@ -29,12 +58,16 @@ rm -rf websocketpp-0.8.2/
 echo
 echo "Building the C++ MBot API..."
 echo
-python3 setup.py build_ext
+
+cd build
+cmake ../mbot_cpp/
+make
 
 echo
 echo "Installing the C++ MBot API..."
 echo
-sudo python3 setup.py install_ext
+sudo make install
+cd ..
 
 # Install service.
 echo
