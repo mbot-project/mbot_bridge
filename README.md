@@ -7,7 +7,7 @@ Dependencies:
 * LCM 1.4+ (tested on 1.5)
 * [MBot messages](https://github.com/mbot-project/mbot_lcm_base) for Python and C++
 
-See the [Documentation](docs/index.md) for more details.
+See the [Documentation](docs/) for more details.
 
 ## Install Instructions
 
@@ -91,3 +91,15 @@ To test the JS API, a test script is available in the `test` directory. To use i
 python -m http.server
 ```
 Then navigate to `http://[HOST_IP]:8000/test` in a browser. If running locally, use the IP `localhost`.
+
+## Building the Documentation
+
+The documentation is built on Sphinx with the Read The Docs template. To build:
+```bash
+cd docs/
+make html
+```
+To auto-generate API documentation for Python:
+```bash
+sphinx-apidoc -o . ../src/mbot_bridge
+```

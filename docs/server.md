@@ -2,7 +2,7 @@
 
 The MBot Bridge Server must be running in the background in order to use the API. This page describes the configuration and the protocol.
 
-**Note:** This is an advanced guide for developers and instructors. For regular usage, see the [API documentation](index.md#api-documentation).
+**Note:** This is an advanced guide for developers and instructors. For regular usage, see the [API documentation](index.rst#api-documentation).
 
 ## Configuration
 
@@ -10,7 +10,7 @@ The MBot Bridge Server must be running in the background in order to use the API
 
 The MBot Bridge defines a custom protocol in JSON to communicate over websockets.
 
-**Note:** In most cases, you should use the API rather than creating and sending JSON messages directly. The API provides interfaces for common functionality and constructs JSON messages for you. See the [API documentation](index.md#api-documentation) for more details.
+**Note:** In most cases, you should use the API rather than creating and sending JSON messages directly. The API provides interfaces for common functionality and constructs JSON messages for you. See the [API documentation](index.rst#api-documentation) for more details.
 
 These fields are available for all types:
 * `type`: The message type as an integer (see [Message Types](#message-types))
