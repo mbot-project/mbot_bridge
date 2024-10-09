@@ -111,7 +111,7 @@ class MBot {
 
       this.ws_subs[ch].onerror = (error) => {
         this.ws_subs[ch] = null;
-        reject("MBot API Error: Cannot subscribe to channel "+ channel);
+        reject("MBot API Error: Cannot subscribe to channel " + ch);
       };
 
       this.ws_subs[ch].onclose = () => {
