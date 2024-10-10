@@ -9,7 +9,8 @@ let config = {
   MOTOR_VEL_CMD: {channel: "MBOT_VEL_CMD", dtype: "twist2D_t"},
   LIDAR: {channel: "LIDAR", dtype: "lidar_t"},
   SLAM_MAP: {channel: "SLAM_MAP", dtype: "occupancy_grid_t"},
-  SLAM_POSE: {channel: "SLAM_POSE", dtype: "pose2D_t"}
+  SLAM_POSE: {channel: "SLAM_POSE", dtype: "pose2D_t"},
+  MBOT_SYSTEM_RESET: {channel: "MBOT_SYSTEM_RESET", dtype: "mbot_slam_reset_t"}
 }
 
 export default config;

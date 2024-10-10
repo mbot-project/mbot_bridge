@@ -219,11 +219,16 @@ class MBot {
 
   readMap() {
     let promise = new Promise((resolve, reject) => {
-      this._read(config.SLAM_MAP.channel).then((data) => {
-        // Read the cells as a byte array if provided as such.
-        let new_cells;
-        if (data.cells instanceof ArrayBuffer) new_cells = new Int8Array(data.cells);
-        else new_cells = data.cells;
+      this._read(config.SLAM_MAP.channel).then((msg) => {
+        const data = msg.data;
+        // Read the cells as a byte array.
+        let binaryString = atob(data.cells);
+        let len = binaryString.length;
+        let cells = new Int8Array(len);
+
+        for (let i = 0; i < len; i++) {
+          cells[i] = binaryString.charCodeAt(i) << 24 >> 24;
+        }
         // Collect all the map data.
         const map_data = {
           width: data.width,
@@ -231,7 +236,7 @@ class MBot {
           meters_per_cell: data.meters_per_cell,
           origin: [data.origin_x, data.origin_y],
           num_cells: data.num_cells,
-          cells: new_cells,
+          cells: cells,
         };
         resolve(map_data)
       }).catch((error) => {
@@ -256,6 +261,11 @@ class MBot {
   drive(vx, vy, wz) {
     let data = { "vx": vx, "vy": vy, "wz": wz };
     this.publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
+  }
+
+  resetSLAM(slam_mode = 99, retain_pose = false, map_file = "current.map") {
+    const data = {slam_mode: slam_mode, retain_pose: retain_pose, slam_map_location: map_file};
+    this.publish(data, config.MBOT_SYSTEM_RESET.channel, config.MBOT_SYSTEM_RESET.dtype)
   }
 }
 
