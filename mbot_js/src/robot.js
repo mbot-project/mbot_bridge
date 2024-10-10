@@ -264,6 +264,13 @@ class MBot {
     this.publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
   }
 
+  /**
+   * Convenience function for stopping the robot by sending all zeros.
+   */
+  stop() {
+    this.drive(0, 0, 0);
+  }
+
   resetSLAM(slam_mode = 99, retain_pose = false, map_file = "current.map") {
     const data = {slam_mode: slam_mode, retain_pose: retain_pose, slam_map_location: map_file};
     this.publish(data, config.MBOT_SYSTEM_RESET.channel, config.MBOT_SYSTEM_RESET.dtype)
