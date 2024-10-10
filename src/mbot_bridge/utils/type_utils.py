@@ -1,5 +1,6 @@
 import importlib
 import mbot_lcm_msgs
+import base64
 
 
 class BadMessageError(Exception):
@@ -68,7 +69,7 @@ def occupancy_grid_to_byte_dict(data):
         "width": decoded_data.width,
         "height": decoded_data.height,
         "num_cells": decoded_data.num_cells,
-        "cells": cell_bytes,  # The cells should remain as bytes.
+        "cells": base64.b64encode(cell_bytes).decode('utf-8'),  # The cells should remain as bytes.
     }
     return data_d
 
