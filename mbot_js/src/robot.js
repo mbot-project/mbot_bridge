@@ -36,9 +36,9 @@ class MBot {
       };
 
       websocket.onmessage = (event) => {
-        let res = new MBotJSONMessage()
+        let res = new MBotJSONMessage();
         res.decode(event.data);
-        websocket.close();
+        websocket.close(1000);  // 1000 indicates a normal close.
 
         // Check for error from the server.
         if (res.rtype === MBotMessageType.ERROR) {
@@ -72,7 +72,7 @@ class MBot {
 
     websocket.onopen = (event) => {
       websocket.send(msg.encode());
-      websocket.close();
+      websocket.close(1000);  // 1000 indicates a normal close.
     };
 
     websocket.onerror = (event) => {
@@ -100,13 +100,19 @@ class MBot {
 
       this.ws_subs[ch].onopen = (event) => {
         this.ws_subs[ch].send(msg.encode());
-        resolve();
       };
 
       this.ws_subs[ch].onmessage = (event) => {
         let res = new MBotJSONMessage();
         res.decode(event.data);
+
+        if (res.rtype === MBotMessageType.ERROR) {
+          // This promise fails if there was an error on the first response.
+          reject("MBot API Error: " + res.data + " on channel: " + ch);
+        }
+
         cb(res);
+        resolve();  // Resolve on first successful callback.
       };
 
       this.ws_subs[ch].onerror = (error) => {
@@ -144,7 +150,7 @@ class MBot {
           resolve();
         };
 
-        this.ws_subs[ch].close();
+        this.ws_subs[ch].close(1000);
       }
       else {
         this.ws_subs[ch] = null;
@@ -203,6 +209,31 @@ class MBot {
       this._read(config.ODOMETRY.channel).then((val) => {
         const odom = [val.data.x, val.data.y, val.data.theta];
         resolve(odom)
+      }).catch((error) => {
+        reject(error)
+      });
+    });
+
+    return promise;
+  }
+
+  readMap() {
+    let promise = new Promise((resolve, reject) => {
+      this._read(config.SLAM_MAP.channel).then((data) => {
+        // Read the cells as a byte array if provided as such.
+        let new_cells;
+        if (data.cells instanceof ArrayBuffer) new_cells = new Int8Array(data.cells);
+        else new_cells = data.cells;
+        // Collect all the map data.
+        const map_data = {
+          width: data.width,
+          height: data.height,
+          meters_per_cell: data.meters_per_cell,
+          origin: [data.origin_x, data.origin_y],
+          num_cells: data.num_cells,
+          cells: new_cells,
+        };
+        resolve(map_data)
       }).catch((error) => {
         reject(error)
       });
