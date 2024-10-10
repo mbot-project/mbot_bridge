@@ -110,9 +110,10 @@ class MBot {
           // This promise fails if there was an error on the first response.
           reject("MBot API Error: " + res.data + " on channel: " + ch);
         }
-
-        cb(res);
-        resolve();  // Resolve on first successful callback.
+        else {
+          cb(res);
+          resolve();  // Resolve on first successful callback.
+        }
       };
 
       this.ws_subs[ch].onerror = (error) => {
