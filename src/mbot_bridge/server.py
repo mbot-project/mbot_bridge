@@ -80,11 +80,13 @@ class LCMMessageQueue(object):
 
 
 class MBotBridgeServer(object):
-    def __init__(self, lcm_address, subs, ignore_channels=[],
+    def __init__(self, lcm_address, subs,
+                 ignore_channels=[], map_channel="SLAM_MAP",
                  lcm_type_modules=["mbot_lcm_msgs"], lcm_timeout=1000,
                  hostfile="/etc/hostname", discard_msgs=-1):
         self._hostname = self._read_hostname(hostfile)
         self._loop = None
+        self._map_channel = map_channel
         self.lcm_type_modules = lcm_type_modules
         self.discard_msgs = discard_msgs
 
@@ -264,11 +266,27 @@ class MBotBridgeServer(object):
                 err = MBotJSONError(msg)
                 await websocket.send(err.encode())
         elif request.type() == MBotMessageType.SUBSCRIBE:
-            logging.debug(f"Websocket ID {websocket.id} - Subscribed to channel {request.channel()}")
-            self._subscribe(websocket, request.channel())
+            ch = request.channel()
+            if ch not in self._msg_managers:
+                # If the channel being requested does not exist, return an error.
+                msg = f"Bad subscribe request. No channel: {ch}"
+                logging.warning(f"{websocket.id} - {msg}")
+                err = MBotJSONError(msg)
+                await websocket.send(err.encode())
+            else:
+                logging.debug(f"Websocket ID {websocket.id} - Subscribed to channel {request.channel()}")
+                self._subscribe(websocket, request.channel())
         elif request.type() == MBotMessageType.UNSUBSCRIBE:
-            logging.debug(f"Websocket ID {websocket.id} - Unsubscribed from channel {request.channel()}")
-            await self._unsubscribe(websocket, request.channel())
+            ch = request.channel()
+            if ch not in self._msg_managers:
+                # If the channel being requested does not exist, return an error.
+                msg = f"Bad unsubscribe request. No channel: {ch}"
+                logging.warning(f"{websocket.id} - {msg}")
+                err = MBotJSONError(msg)
+                await websocket.send(err.encode())
+            else:
+                logging.debug(f"Websocket ID {websocket.id} - Unsubscribed from channel {request.channel()}")
+                await self._unsubscribe(websocket, request.channel())
 
     def handle_request(self, request, ws_id):
         ch = request.channel()
@@ -297,6 +315,12 @@ class MBotBridgeServer(object):
             if request.as_bytes():
                 # This msg should be returned as raw bytes.
                 res = self._msg_managers[ch].latest(decode=False)
+            elif ch == self._map_channel:
+                # If the map was requested, but not as bytes, use the special
+                # function to ensure the cells are returned as bytes.
+                latest = type_utils.occupancy_grid_to_byte_dict(self._msg_managers[ch].latest(False))
+                # Wrap the response data for sending over the websocket.
+                res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
             else:
                 res = self._latest_as_msg(ch, decode=True)
 
