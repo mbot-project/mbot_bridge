@@ -221,7 +221,8 @@ class MBotBridgeServer(object):
                 try:
                     self._loop.run_until_complete(ws_sub.send(res.encode()))
                 except (websockets.exceptions.ConnectionClosedOK,
-                        websockets.exceptions.ConnectionClosedError):
+                        websockets.exceptions.ConnectionClosedError,
+                        RuntimeError):
                     # If this websocket is closed, remove it.
                     logging.debug(f"Websocket ID {ws_sub.id} - Disconnected and unsubscribed from {channel}")
                     self._subs[channel].remove(ws_sub)
