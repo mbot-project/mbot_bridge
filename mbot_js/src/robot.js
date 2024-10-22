@@ -269,11 +269,14 @@ class MBot {
    */
   stop() {
     this.drive(0, 0, 0);
+    // Publish an empty path in case motion controller is following a path.
+    const empty_path = {path_length: 0, path: []};
+    this.publish(empty_path, config.CONTROLLER_PATH.channel, config.CONTROLLER_PATH.dtype);
   }
 
   resetSLAM(slam_mode = 99, retain_pose = false, map_file = "current.map") {
     const data = {slam_mode: slam_mode, retain_pose: retain_pose, slam_map_location: map_file};
-    this.publish(data, config.MBOT_SYSTEM_RESET.channel, config.MBOT_SYSTEM_RESET.dtype)
+    this.publish(data, config.MBOT_SYSTEM_RESET.channel, config.MBOT_SYSTEM_RESET.dtype);
   }
 }
 
