@@ -36,9 +36,9 @@ class MBot {
       };
 
       websocket.onmessage = (event) => {
-        let res = new MBotJSONMessage()
+        let res = new MBotJSONMessage();
         res.decode(event.data);
-        websocket.close();
+        websocket.close(1000);  // 1000 indicates a normal close.
 
         // Check for error from the server.
         if (res.rtype === MBotMessageType.ERROR) {
@@ -72,7 +72,7 @@ class MBot {
 
     websocket.onopen = (event) => {
       websocket.send(msg.encode());
-      websocket.close();
+      websocket.close(1000);  // 1000 indicates a normal close.
     };
 
     websocket.onerror = (event) => {
@@ -100,18 +100,25 @@ class MBot {
 
       this.ws_subs[ch].onopen = (event) => {
         this.ws_subs[ch].send(msg.encode());
-        resolve();
       };
 
       this.ws_subs[ch].onmessage = (event) => {
         let res = new MBotJSONMessage();
         res.decode(event.data);
-        cb(res);
+
+        if (res.rtype === MBotMessageType.ERROR) {
+          // This promise fails if there was an error on the first response.
+          reject("MBot API Error: " + res.data + " on channel: " + ch);
+        }
+        else {
+          cb(res);
+          resolve();  // Resolve on first successful callback.
+        }
       };
 
       this.ws_subs[ch].onerror = (error) => {
         this.ws_subs[ch] = null;
-        reject("MBot API Error: Cannot subscribe to channel "+ channel);
+        reject("MBot API Error: Cannot subscribe to channel " + ch);
       };
 
       this.ws_subs[ch].onclose = () => {
@@ -144,7 +151,7 @@ class MBot {
           resolve();
         };
 
-        this.ws_subs[ch].close();
+        this.ws_subs[ch].close(1000);
       }
       else {
         this.ws_subs[ch] = null;
@@ -211,6 +218,36 @@ class MBot {
     return promise;
   }
 
+  readMap() {
+    let promise = new Promise((resolve, reject) => {
+      this._read(config.SLAM_MAP.channel).then((msg) => {
+        const data = msg.data;
+        // Read the cells as a byte array.
+        let binaryString = atob(data.cells);
+        let len = binaryString.length;
+        let cells = new Int8Array(len);
+
+        for (let i = 0; i < len; i++) {
+          cells[i] = binaryString.charCodeAt(i) << 24 >> 24;
+        }
+        // Collect all the map data.
+        const map_data = {
+          width: data.width,
+          height: data.height,
+          meters_per_cell: data.meters_per_cell,
+          origin: [data.origin_x, data.origin_y],
+          num_cells: data.num_cells,
+          cells: cells,
+        };
+        resolve(map_data)
+      }).catch((error) => {
+        reject(error)
+      });
+    });
+
+    return promise;
+  }
+
   /*******************
    * PUBLISH HELPERS *
    *******************/
@@ -225,6 +262,21 @@ class MBot {
   drive(vx, vy, wz) {
     let data = { "vx": vx, "vy": vy, "wz": wz };
     this.publish(data, config.MOTOR_VEL_CMD.channel, config.MOTOR_VEL_CMD.dtype)
+  }
+
+  /**
+   * Convenience function for stopping the robot by sending all zeros.
+   */
+  stop() {
+    this.drive(0, 0, 0);
+    // Publish an empty path in case motion controller is following a path.
+    const empty_path = {path_length: 0, path: []};
+    this.publish(empty_path, config.CONTROLLER_PATH.channel, config.CONTROLLER_PATH.dtype);
+  }
+
+  resetSLAM(slam_mode = 99, retain_pose = false, map_file = "current.map") {
+    const data = {slam_mode: slam_mode, retain_pose: retain_pose, slam_map_location: map_file};
+    this.publish(data, config.MBOT_SYSTEM_RESET.channel, config.MBOT_SYSTEM_RESET.dtype);
   }
 }
 

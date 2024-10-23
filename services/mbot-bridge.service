@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 Restart=on-failure
 RestartSec=5
-ExecStart=/usr/bin/python -m mbot_bridge.server --log-file /var/log/mbot/mbot_bridge.log --discard-msgs 1
+ExecStart=/usr/bin/python -m mbot_bridge.server --log-file /var/log/mbot/mbot_bridge.log --discard-msgs 5
 User=root
 
 [Install]

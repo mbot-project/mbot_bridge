@@ -14,6 +14,15 @@
 
 namespace mbot_bridge {
 
+/**
+ * Gets the current time in microseconds.
+ */
+static inline int getTimeMicro()
+{
+    auto now = std::chrono::system_clock::now();
+    return now.time_since_epoch().count();
+}
+
 class MBot
 {
 public:

@@ -14,6 +14,7 @@ namespace mbot_bridge {
 void MBot::drive(const float vx, const float vy, const float wz) const
 {
     mbot_lcm_msgs::twist2D_t msg;
+    msg.utime = getTimeMicro();
     msg.vx = vx;
     msg.vy = vy;
     msg.wz = wz;
@@ -30,6 +31,7 @@ void MBot::stop() const
 void MBot::resetOdometry() const
 {
     mbot_lcm_msgs::pose2D_t msg;
+    msg.utime = getTimeMicro();
     msg.x = 0;
     msg.y = 0;
     msg.theta = 0;
@@ -43,6 +45,7 @@ void MBot::drivePath(const std::vector<std::array<float, 3> >& path) const
     if (path.size() <= 1) return;
 
     mbot_lcm_msgs::path2D_t msg;
+    msg.utime = getTimeMicro();
 
     for (auto& pose : path)
     {

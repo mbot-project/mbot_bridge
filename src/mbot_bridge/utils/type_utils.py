@@ -1,5 +1,6 @@
 import importlib
 import mbot_lcm_msgs
+import base64
 
 
 class BadMessageError(Exception):
@@ -53,6 +54,24 @@ def decode(data, dtype):
     except (ValueError, AttributeError, ModuleNotFoundError) as e:
         raise BadMessageError(f"Could not parse dtype {dtype}: {e}")
     return lcm_obj.decode(data)
+
+
+def occupancy_grid_to_byte_dict(data):
+    """A special case utility for decoding the occupancy grid, but keeping the
+    cell data as bytes."""
+    decoded_data = mbot_lcm_msgs.occupancy_grid_t.decode(data)  # Decode the data.
+    cell_bytes = data[-decoded_data.num_cells:]  # Extract the cells as bytes.
+    data_d = {
+        "utime": decoded_data.utime,
+        "origin_x": decoded_data.origin_x ,
+        "origin_y": decoded_data.origin_y,
+        "meters_per_cell": decoded_data.meters_per_cell,
+        "width": decoded_data.width,
+        "height": decoded_data.height,
+        "num_cells": decoded_data.num_cells,
+        "cells": base64.b64encode(cell_bytes).decode('utf-8'),  # The cells should remain as bytes.
+    }
+    return data_d
 
 
 def lcm_type_to_dict(data):
