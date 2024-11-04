@@ -181,13 +181,13 @@ class MBotBridgeServer(object):
         # If the user did not specify a channel, try to find it.
         if lcm_type is None:
             if data is None:
-                logging.warn(f"Can't initialize channel without either the type or data: {channel}")
+                logging.warning(f"Can't initialize channel without either the type or data: {channel}")
                 return False
 
             try:
                 lcm_type = type_utils.find_lcm_type(data, self.lcm_type_modules)
             except type_utils.BadMessageError as e:
-                logging.warn(f"Can't find a valid message type for channel: {channel}. Ignoring in future.")
+                logging.warning(f"Can't find a valid message type for channel: {channel}. Ignoring in future.")
                 self._ignore_channels.append(channel)
                 return False
 
