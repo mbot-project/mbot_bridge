@@ -47,6 +47,9 @@ class LCMMessageQueue(object):
 
         # Decode to LCM type if requested.
         if decode:
+            if self.dtype is None:
+                raise type_utils.BadMessageError(f"Unknown data type on channel {self.channel}.")
+
             latest = type_utils.decode(latest, self.dtype)
 
         return latest
@@ -57,8 +60,17 @@ class LCMMessageQueue(object):
         if len(self._queue) > 0:
             latest = self._queue[-1]
         self._lock.release()
-        latest = type_utils.decode(latest, self.dtype)
-        return latest.utime
+
+        # Grab the utime.
+        latest_utime = None
+        if self.dtype is not None:
+            latest = type_utils.decode(latest, self.dtype)
+            if hasattr(latest, "utime"):
+                latest_utime = latest.utime
+        if latest_utime is None:
+            # If the time can't be decoded from the message, use the last push time.
+            utime = int(self._last_push_time * 1e6)
+        return utime
 
     def pop(self, decode=False):
         first = None
@@ -162,11 +174,15 @@ class MBotBridgeServer(object):
         return name.strip()
 
     def _latest_as_msg(self, ch, decode=True):
-        latest = self._msg_managers[ch].latest(decode)
-        if decode:
-            latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary, only message is decoded.
-        # Wrap the response data for sending over the websocket.
-        res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+        try:
+            latest = self._msg_managers[ch].latest(decode)
+            if decode:
+                latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary, only message is decoded.
+            # Wrap the response data for sending over the websocket.
+            res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+        except type_utils.BadMessageError as e:
+            # If we were asked to decode an unknown type, return an error.
+            res = MBotJSONError(f"Can't decode data on channel {ch} of unknown type.")
         return res
 
     def _init_channel(self, channel, lcm_type=None, data=None):
@@ -187,12 +203,13 @@ class MBotBridgeServer(object):
             try:
                 lcm_type = type_utils.find_lcm_type(data, self.lcm_type_modules)
             except type_utils.BadMessageError as e:
-                logging.warning(f"Can't find a valid message type for channel: {channel}. Ignoring in future.")
-                self._ignore_channels.append(channel)
-                return False
+                logging.warning(f"Can't find a valid message type for channel: {channel}. "
+                                "Data will be stored but can't be decoded.")
+                lcm_type = None
 
         # Add this channel to the message queue.
-        logging.info(f"Listening on channel: {channel} ({lcm_type})")
+        lcm_type_to_print = lcm_type if lcm_type is not None else "unknown type"
+        logging.info(f"Listening on channel: {channel} ({lcm_type_to_print})")
         self._subs.update({channel: []})
         self._msg_managers.update({channel: LCMMessageQueue(channel, lcm_type)})
         return True
@@ -211,7 +228,6 @@ class MBotBridgeServer(object):
 
         # If there are subscribers, send them the data.
         if len(self._subs[channel]) > 0:
-            # res = self._msg_managers[channel].latest(decode=True)
             res = self._latest_as_msg(channel, decode=True)
             for ws_sub in self._subs[channel]:
                 if not ws_sub.open:
