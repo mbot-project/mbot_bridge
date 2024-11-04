@@ -107,12 +107,13 @@ class MBotBridgeServer(object):
     def __init__(self, lcm_address, subs,
                  ignore_channels=[], map_channel="SLAM_MAP",
                  lcm_type_modules=["mbot_lcm_msgs"], lcm_timeout=1000,
-                 hostfile="/etc/hostname", discard_msgs=-1):
+                 hostfile="/etc/hostname", discard_msgs=-1, stale_channel_timeout=10):
         self._hostname = self._read_hostname(hostfile)
         self._loop = None
         self._map_channel = map_channel
         self.lcm_type_modules = lcm_type_modules
         self.discard_msgs = discard_msgs
+        self.stale_channel_timeout = stale_channel_timeout
 
         # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
@@ -328,7 +329,7 @@ class MBotBridgeServer(object):
             subs = []
             for _, v in self._msg_managers.items():
                 # Only return active channels.
-                if v.active():
+                if v.active(self.stale_channel_timeout):
                     subs.append(v.header())
             res = MBotJSONResponse(subs, ch, "")
             return res
@@ -392,7 +393,8 @@ async def main(args):
     lcm_manager = MBotBridgeServer(args.lcm_address, subs=args.subs,
                                    ignore_channels=args.ignore_channels,
                                    lcm_type_modules=args.lcm_type_modules,
-                                   hostfile=args.host_file, discard_msgs=args.discard_msgs)
+                                   hostfile=args.host_file, discard_msgs=args.discard_msgs,
+                                   stale_channel_timeout=args.stale_channel_timeout)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
@@ -417,7 +419,10 @@ def load_args(conf="config/default.yml"):
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
     parser.add_argument("--host-file", type=str, default="/etc/hostname", help="Hostname file.")
-    parser.add_argument("--discard-msgs", type=float, default=-1, help="Discard stale msgs after X seconds.")
+    parser.add_argument("--discard-msgs", type=float, default=-1,
+                        help="Discard stale msgs after X seconds (if -1, no messages are discarded).")
+    parser.add_argument("--stale-channel-timeout", type=float, default=10,
+                        help="Timeout for marking a channel as not active.")
 
     args = parser.parse_args()
 
