@@ -11,7 +11,8 @@ def str_to_lcm_type(dtype):
     """Accesses the message type by string. Raises AttributeError if the class type is invalid."""
     # Check whether the dtype is a full path to the package.
     if "." in dtype:
-        pkg, msg_type = dtype.split(".")  # The data type should be pkg.msg_type_t.
+        pkg = ".".join(dtype.split(".")[:-1])  # The data type should be pkg.msg_type_t.
+        msg_type = dtype.split(".")[-1]
         pkg = importlib.import_module(pkg)
         return getattr(pkg, msg_type)
 
@@ -38,6 +39,9 @@ def find_lcm_type(data, pkgs):
                 try:
                     # Try to decode the message with this type.
                     lcm_type_class.decode(data)
+                    if pkg_name is not "mbot_lcm_msgs":
+                        # Add the package prefix if this isn't in mbot_lcm_msgs.
+                        lcm_type = pkg_name + "." + lcm_type
                     # If the decode succeeds, return this as the type.
                     return lcm_type
                 except ValueError as e:
