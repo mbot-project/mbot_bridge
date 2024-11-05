@@ -183,7 +183,9 @@ class MBotBridgeServer(object):
             res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
         except type_utils.BadMessageError as e:
             # If we were asked to decode an unknown type, return an error.
-            res = MBotJSONError(f"Can't decode data on channel {ch} of unknown type.")
+            msg = f"Can't decode data on channel {ch}: {e}"
+            logging.warning(msg)
+            res = MBotJSONError(msg)
         return res
 
     def _init_channel(self, channel, lcm_type=None, data=None):
