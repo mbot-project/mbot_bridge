@@ -62,15 +62,14 @@ class LCMMessageQueue(object):
         self._lock.release()
 
         # Grab the utime.
-        latest_utime = None
         if self.dtype is not None:
             latest = type_utils.decode(latest, self.dtype)
             if hasattr(latest, "utime"):
-                latest_utime = latest.utime
-        if latest_utime is None:
-            # If the time can't be decoded from the message, use the last push time.
-            utime = int(self._last_push_time * 1e6)
-        return utime
+                return latest.utime
+
+        # If the time can't be decoded from the message, use the last push time.
+        latest_utime = int(self._last_push_time * 1e6)
+        return latest_utime
 
     def pop(self, decode=False):
         first = None
