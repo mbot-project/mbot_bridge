@@ -39,7 +39,7 @@ def find_lcm_type(data, pkgs):
                 try:
                     # Try to decode the message with this type.
                     lcm_type_class.decode(data)
-                    if pkg_name is not "mbot_lcm_msgs":
+                    if pkg_name != "mbot_lcm_msgs":
                         # Add the package prefix if this isn't in mbot_lcm_msgs.
                         lcm_type = pkg_name + "." + lcm_type
                     # If the decode succeeds, return this as the type.
