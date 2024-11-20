@@ -113,21 +113,6 @@ public:
                      const bool as_bytes = true) :
         MBotWSCommBase(uri),
         channel_(ch),
-        as_bytes_(as_bytes),
-        decoder_(DefaultDataToLCMDecoder())
-    {
-        // Register the open handler.
-        c_.set_open_handler(websocketpp::lib::bind(&MBotBridgeReader::on_open, this, ::_1));
-        c_.set_message_handler(websocketpp::lib::bind(&MBotBridgeReader::on_message, this, ::_1, ::_2));
-    };
-
-    MBotBridgeReader(const std::string& ch,
-                     const DataToLCMDecoder& decoder,
-                     const std::string& uri = "ws://localhost:5005",
-                     const bool as_bytes = true) :
-        MBotWSCommBase(uri),
-        channel_(ch),
-        decoder_(decoder),
         as_bytes_(as_bytes)
     {
         // Register the open handler.
@@ -154,7 +139,6 @@ private:
     MBotMessageType res_type_;  // Response type, to check for errors.
     bool as_bytes_;             // Whether to request the data as raw bytes.
     T data_;
-    DataToLCMDecoder decoder_;  // Decoder class.
 
     void on_open(websocketpp::connection_hdl hdl){
         // Request the data.
@@ -171,7 +155,7 @@ private:
 
             if (res_type_ == MBotMessageType::RESPONSE)
             {
-                decoder_.decode(in_msg.data(), data_);
+                stringToLCMType(in_msg.data(), data_);
             }
             else if (res_type_ == MBotMessageType::ERROR)
             {

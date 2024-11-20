@@ -127,36 +127,6 @@ static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::lidar
     }
 }
 
-
-class DataToLCMDecoder {
-public:
-    DataToLCMDecoder()
-    {};
-
-    template <class T>
-    void decode(const std::string& data, T& out) {
-        // This base function does nothing and should be overridden.
-    };
-};
-
-
-class DefaultDataToLCMDecoder : public DataToLCMDecoder {
-public:
-    DefaultDataToLCMDecoder() :
-        DataToLCMDecoder()
-    {};
-
-    /**
-     * This default string data to LCM message type converter attempts to use an
-     * existing stringToLCMType function. This will fail to compile if used with
-     * an unknown type.
-     */
-    template <class T>
-    void decode(const std::string& data, T& out) {
-        stringToLCMType(data, out);
-    };
-};
-
 }   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_LCM_UTILS_H
