@@ -47,6 +47,9 @@ class LCMMessageQueue(object):
 
         # Decode to LCM type if requested.
         if decode:
+            if self.dtype is None:
+                raise type_utils.BadMessageError(f"Unknown data type on channel {self.channel}.")
+
             latest = type_utils.decode(latest, self.dtype)
 
         return latest
@@ -57,8 +60,16 @@ class LCMMessageQueue(object):
         if len(self._queue) > 0:
             latest = self._queue[-1]
         self._lock.release()
-        latest = type_utils.decode(latest, self.dtype)
-        return latest.utime
+
+        # Grab the utime.
+        if self.dtype is not None:
+            latest = type_utils.decode(latest, self.dtype)
+            if hasattr(latest, "utime"):
+                return latest.utime
+
+        # If the time can't be decoded from the message, use the last push time.
+        latest_utime = int(self._last_push_time * 1e6)
+        return latest_utime
 
     def pop(self, decode=False):
         first = None
@@ -95,12 +106,13 @@ class MBotBridgeServer(object):
     def __init__(self, lcm_address, subs,
                  ignore_channels=[], map_channel="SLAM_MAP",
                  lcm_type_modules=["mbot_lcm_msgs"], lcm_timeout=1000,
-                 hostfile="/etc/hostname", discard_msgs=-1):
+                 hostfile="/etc/hostname", discard_msgs=-1, stale_channel_timeout=10):
         self._hostname = self._read_hostname(hostfile)
         self._loop = None
         self._map_channel = map_channel
         self.lcm_type_modules = lcm_type_modules
         self.discard_msgs = discard_msgs
+        self.stale_channel_timeout = stale_channel_timeout
 
         # LCM setup.
         self._lcm_timeout = lcm_timeout  # This is how long to timeout in the LCM handle call.
@@ -162,11 +174,17 @@ class MBotBridgeServer(object):
         return name.strip()
 
     def _latest_as_msg(self, ch, decode=True):
-        latest = self._msg_managers[ch].latest(decode)
-        if decode:
-            latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary, only message is decoded.
-        # Wrap the response data for sending over the websocket.
-        res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+        try:
+            latest = self._msg_managers[ch].latest(decode)
+            if decode:
+                latest = type_utils.lcm_type_to_dict(latest)  # Convert to dictionary, only message is decoded.
+            # Wrap the response data for sending over the websocket.
+            res = MBotJSONResponse(latest, ch, self._msg_managers[ch].dtype)
+        except type_utils.BadMessageError as e:
+            # If we were asked to decode an unknown type, return an error.
+            msg = f"Can't decode data on channel {ch}: {e}"
+            logging.warning(msg)
+            res = MBotJSONError(msg)
         return res
 
     def _init_channel(self, channel, lcm_type=None, data=None):
@@ -181,18 +199,19 @@ class MBotBridgeServer(object):
         # If the user did not specify a channel, try to find it.
         if lcm_type is None:
             if data is None:
-                logging.warn(f"Can't initialize channel without either the type or data: {channel}")
+                logging.warning(f"Can't initialize channel without either the type or data: {channel}")
                 return False
 
             try:
                 lcm_type = type_utils.find_lcm_type(data, self.lcm_type_modules)
             except type_utils.BadMessageError as e:
-                logging.warn(f"Can't find a valid message type for channel: {channel}. Ignoring in future.")
-                self._ignore_channels.append(channel)
-                return False
+                logging.warning(f"Can't find a valid message type for channel: {channel}. "
+                                "Data will be stored but can't be decoded.")
+                lcm_type = None
 
         # Add this channel to the message queue.
-        logging.info(f"Listening on channel: {channel} ({lcm_type})")
+        lcm_type_to_print = lcm_type if lcm_type is not None else "unknown type"
+        logging.info(f"Listening on channel: {channel} ({lcm_type_to_print})")
         self._subs.update({channel: []})
         self._msg_managers.update({channel: LCMMessageQueue(channel, lcm_type)})
         return True
@@ -211,7 +230,6 @@ class MBotBridgeServer(object):
 
         # If there are subscribers, send them the data.
         if len(self._subs[channel]) > 0:
-            # res = self._msg_managers[channel].latest(decode=True)
             res = self._latest_as_msg(channel, decode=True)
             for ws_sub in self._subs[channel]:
                 if not ws_sub.open:
@@ -312,7 +330,7 @@ class MBotBridgeServer(object):
             subs = []
             for _, v in self._msg_managers.items():
                 # Only return active channels.
-                if v.active():
+                if v.active(self.stale_channel_timeout):
                     subs.append(v.header())
             res = MBotJSONResponse(subs, ch, "")
             return res
@@ -375,8 +393,10 @@ async def main(args):
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
     lcm_manager = MBotBridgeServer(args.lcm_address, subs=args.subs,
                                    ignore_channels=args.ignore_channels,
+                                   map_channel=args.map_channel,
                                    lcm_type_modules=args.lcm_type_modules,
-                                   hostfile=args.host_file, discard_msgs=args.discard_msgs)
+                                   hostfile=args.host_file, discard_msgs=args.discard_msgs,
+                                   stale_channel_timeout=args.stale_channel_timeout)
 
     # Not awaiting the task will cause it to be stoped when the loop ends.
     asyncio.create_task(asyncio.to_thread(lcm_manager.lcm_loop))
@@ -395,13 +415,25 @@ async def main(args):
 
 def load_args(conf="config/default.yml"):
     parser = argparse.ArgumentParser(description="MBot Bridge Server.")
-    parser.add_argument("--config", type=str, default=conf, help="Configuration file.")
+    parser.add_argument("--lcm-address", type=str, default="udpm://239.255.76.67:7667?ttl=1", help="LCM address.")
+    parser.add_argument("--config", type=str, default=conf, help="Configuration file for subscription data.")
     parser.add_argument("--port", type=int, default=5005, help="Websocket port.")
     parser.add_argument("--log-file", type=str, default="mbot_bridge_server.log", help="Log file.")
     parser.add_argument("--log", type=str, default="INFO", help="Log level.")
     parser.add_argument("--max-log-size", type=int, default=2 * 1024 * 1024, help="Max log size.")
     parser.add_argument("--host-file", type=str, default="/etc/hostname", help="Hostname file.")
-    parser.add_argument("--discard-msgs", type=float, default=-1, help="Discard stale msgs after X seconds.")
+    parser.add_argument("--discard-msgs", type=float, default=-1,
+                        help="Discard stale msgs after X seconds (if -1, no messages are discarded). Default: -1")
+    parser.add_argument("--stale-channel-timeout", type=float, default=10,
+                        help="Timeout for marking a channel as not active.")
+    parser.add_argument("--ignore-channels", default=[], nargs='*',
+                        help="A list of strings with channel names to ignore.")
+    parser.add_argument("--map-channel", type=str, default="SLAM_MAP",
+                        help="The map channel. The map data on this channel is always packaged as bytes.")
+    parser.add_argument("--lcm-type-modules", nargs='*', default=["mbot_lcm_msgs"],
+                        help="A list of strings with the names of Python packages to search for LCM types. "
+                             "The bridge will look here to try to determine the type of a message if it was "
+                             "not provided. These must be importable by the bridge.")
 
     args = parser.parse_args()
 
@@ -410,6 +442,10 @@ def load_args(conf="config/default.yml"):
     if not isinstance(numeric_level, int):
         raise ValueError(f'Invalid log level: {args.log}')
     args.log = numeric_level
+
+    # Make sure that the MBot LCM messages are always in the module list.
+    if "mbot_lcm_msgs" not in args.lcm_type_modules:
+        args.lcm_type_modules = ["mbot_lcm_msgs"] + args.lcm_type_modules
 
     return args
 
@@ -421,7 +457,6 @@ def load_config(args):
         config = yaml.load(f, Loader=yaml.Loader)
 
     # Extract data from the config file.
-    args.lcm_address = config["lcm_address"]
     subs = config["subs"]
     # Confirm subs where either a list or equal to "all".
     if subs != "all" and not isinstance(subs, list):
@@ -430,23 +465,6 @@ def load_config(args):
         raise Exception("Bad config file")
 
     args.subs = subs
-
-    args.ignore_channels = config["ignore_channels"] if "ignore_channels" in config.keys() else []
-    lcm_type_modules = config["lcm_type_modules"] if "lcm_type_modules" in config.keys() else ["mbot_lcm_msgs"]
-
-    # Confirm that the LCM modules are loadable.
-    good_type_modules = []
-    for pkg in lcm_type_modules:
-        try:
-            importlib.import_module(pkg)
-            good_type_modules.append(pkg)
-        except ModuleNotFoundError as e:
-            logging.warning(f"No LCM type module named: \'{pkg}\'. Ignoring.")
-    if len(good_type_modules) < 1:
-        # If there are no valid types, add the default.
-        logging.warning("No valid LCM type modules provided. Using default: \'mbot_lcm_msgs\'")
-        good_type_modules = ["mbot_lcm_msgs"]
-    args.lcm_type_modules = good_type_modules
 
     return args
 
@@ -473,6 +491,20 @@ if __name__ == "__main__":
                         datefmt='%m/%d/%Y %I:%M:%S %p')
     # Websocket messages are too noisy, make sure they aren't higher than warning.
     logging.getLogger("websockets").setLevel(logging.WARNING)
+
+    # Confirm that the LCM modules are loadable.
+    good_type_modules = []
+    for pkg in args.lcm_type_modules:
+        try:
+            importlib.import_module(pkg)
+            good_type_modules.append(pkg)
+        except ModuleNotFoundError as e:
+            logging.warning(f"No LCM type module named: \'{pkg}\'. Ignoring.")
+    if len(good_type_modules) < 1:
+        # If there are no valid types, add the default.
+        logging.warning("No valid LCM type modules provided. Using default: \'mbot_lcm_msgs\'")
+        good_type_modules = ["mbot_lcm_msgs"]
+    args.lcm_type_modules = good_type_modules
 
     load_config(args)
 

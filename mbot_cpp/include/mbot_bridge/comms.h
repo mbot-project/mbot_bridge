@@ -132,6 +132,8 @@ public:
 
     MBotMessageType getResponseType() const { return res_type_; }
 
+    void setAsBytes(const bool as_bytes) { as_bytes_ = as_bytes; }
+
 private:
     std::string channel_;
     MBotMessageType res_type_;  // Response type, to check for errors.

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <regex>
 
+namespace mbot_bridge {
 
 static inline std::string strip(const std::string& s)
 {
@@ -226,5 +227,7 @@ static inline std::map<std::string, std::string> jsonToMap(const std::string& in
 
     return data;
 }
+
+}   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_JSON_HELPERS_H

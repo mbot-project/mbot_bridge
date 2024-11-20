@@ -31,6 +31,8 @@ python -m mbot_bridge.server [--config [PATH/TO/CONFIG]]
 ```
 The `--config` argument is optional and will default to `src/mbot_bridge/config/default.yml`.
 
+Do `python -m mbot_bridge.server -h` for a full list of options.
+
 **Import errors in your virtual environment?** If you get import errors (e.g. for NumPy and LCM) you need to share the system packages with the virtual environment. If you are using `venv`, you can do this with:
 ```bash
 python3 -m venv --system-site-packages ~/.envs/my-mbot-env

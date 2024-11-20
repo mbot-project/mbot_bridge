@@ -24,6 +24,7 @@
 #define CONTROLLER_PATH_CHANNEL "CONTROLLER_PATH"
 #define CONTROLLER_PATH_TYPE "path2D_t"
 
+namespace mbot_bridge {
 
 static inline std::string lcmTypeToString(const mbot_lcm_msgs::twist2D_t& data)
 {
@@ -126,5 +127,6 @@ static inline void stringToLCMType(const std::string& data, mbot_lcm_msgs::lidar
     }
 }
 
+}   // namespace mbot_bridge
 
 #endif // MBOT_BRIDGE_LCM_UTILS_H
